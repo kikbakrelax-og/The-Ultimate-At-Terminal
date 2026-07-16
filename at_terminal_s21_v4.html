@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AT Terminal — S21 Exynos / Qualcomm / APDU / Dual Port</title>
+<style>
+:root{
+  --bg0:#070b0f;--bg1:#0b1017;--bg2:#0f1820;--bg3:#131e2a;
+  --border:#192433;--border2:#203040;
+  --text:#b0bec5;--text2:#6a8090;--text3:#37474f;
+  --green:#2ecc71;--green-dim:#0a2818;
+  --blue:#64b5f6;--blue-dim:#091828;
+  --amber:#ffb74d;--red:#ef5350;--purple:#ce93d8;--teal:#80cbc4;
+  --orange:#ff8a65;--lime:#aed581;--cyan:#4dd0e1;
+  --sw:#1976d2;--sw-dim:#080f1e;
+  --hayes:#7c4dff;--hayes-dim:#0e0a1e;
+  --apdu:#00bcd4;--apdu-dim:#001e24;
+  --qcom:#e040fb;--qcom-dim:#1a0020;
+  --qcom2:#b000d0;
+  --p2color:#ff8a00;--p2dim:#1a0a00;
+  --font:'Cascadia Code','Fira Code','Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--font);font-size:13px;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* ── TITLEBAR ─────────────────────────────────────────────── */
+.titlebar{background:var(--bg1);border-bottom:1px solid var(--border);padding:5px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dot-r{background:#ff5f57}.dot-y{background:#ffbd2e}.dot-g{background:#28c840}
+.title-text{font-size:10px;color:var(--text3);letter-spacing:.1em}
+.quickbar{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.qpill{font-size:9px;padding:2px 8px;border-radius:999px;letter-spacing:.05em;cursor:pointer;border:0.5px solid;user-select:none}
+.qpill-g {background:var(--green-dim);color:var(--green); border-color:var(--green)}
+.qpill-b {background:var(--blue-dim); color:var(--blue);  border-color:var(--sw)}
+.qpill-b:hover{background:#0d2540}
+.qpill-h {background:var(--hayes-dim);color:#b39ddb;     border-color:#7c4dff}
+.qpill-h:hover{background:#130f2a}
+.qpill-a {background:var(--apdu-dim); color:#80deea;     border-color:#00bcd4}
+.qpill-a:hover{background:#001c24}
+.qpill-q {background:var(--qcom-dim); color:var(--qcom); border-color:var(--qcom)}
+.qpill-q:hover{background:#200028}
+.qpill-p2{background:var(--p2dim);   color:var(--p2color);border-color:var(--p2color)}
+.qpill-p2:hover{background:#240e00}
+/* port indicator pills — live state shown on titlebar */
+#p1-pill,#p2-pill{min-width:70px;text-align:center;transition:background .2s,color .2s}
+
+/* ── LAYOUT ───────────────────────────────────────────────── */
+.body{display:flex;flex:1;min-height:0}
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+.sidebar{width:230px;min-width:230px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.sidebar-scroll::-webkit-scrollbar{width:3px}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--border2)}
+
+.group{border-bottom:0.5px solid var(--border)}
+.group-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;cursor:pointer;background:none;border:none;width:100%;text-align:left;font-family:var(--font);font-size:10px;letter-spacing:.05em;transition:background .1s}
+.group-hdr.std  {color:var(--text3)}           .group-hdr.std:hover  {background:var(--bg2);color:var(--text2)}
+.group-hdr.hayes{color:#4a2a8a;background:#07050f}.group-hdr.hayes:hover{background:#100820;color:#b39ddb}
+.group-hdr.sw   {color:#1a3a5a;background:#05090f}.group-hdr.sw:hover   {background:var(--sw-dim);color:var(--blue)}
+.group-hdr.apdu {color:#004a54;background:#030d0f}.group-hdr.apdu:hover {background:#041215;color:#80deea}
+.group-hdr.etsi {color:#2a4a1a;background:#050f03}.group-hdr.etsi:hover {background:#081505;color:var(--lime)}
+.group-hdr.qcom {color:#4a006a;background:#0e0014}.group-hdr.qcom:hover {background:#180020;color:var(--qcom)}
+.group-hdr.p2   {color:#5a3000;background:#0e0700}.group-hdr.p2:hover   {background:var(--p2dim);color:var(--p2color)}
+.garrow{font-size:8px;color:var(--text3);transition:transform .15s}
+.garrow.open{transform:rotate(90deg)}
+.gbody{display:none}.gbody.open{display:block}
+
+/* command buttons */
+.cb{display:block;width:100%;text-align:left;background:none;border:none;font-family:var(--font);font-size:11px;padding:3px 10px 3px 18px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid transparent;transition:background .08s,color .08s}
+.cb.std   {color:var(--text3)}.cb.std:hover   {background:var(--bg2);color:var(--teal);border-left-color:#00695c}
+.cb.hl    {color:#2a4a20}    .cb.hl:hover     {color:var(--lime);border-left-color:#558b2f;background:#080f04}
+.cb.hayes {color:#2a1a5a}    .cb.hayes:hover  {background:var(--hayes-dim);color:#b39ddb;border-left-color:#7c4dff}
+.cb.sw    {color:#112030}    .cb.sw:hover     {background:var(--sw-dim);color:var(--blue);border-left-color:var(--sw)}
+.cb.sw-hl {color:#1a3040}   .cb.sw-hl:hover  {background:var(--sw-dim);color:#90caf9;border-left-color:#1976d2}
+.cb.apdu  {color:#00303a}   .cb.apdu:hover   {background:var(--apdu-dim);color:#80deea;border-left-color:#00bcd4}
+.cb.etsi  {color:#1a3010}   .cb.etsi:hover   {background:#060f03;color:var(--lime);border-left-color:#558b2f}
+.cb.qcom  {color:#3a0050}   .cb.qcom:hover   {background:var(--qcom-dim);color:var(--qcom);border-left-color:var(--qcom2)}
+.cb.qcom-hl{color:#4a0060}  .cb.qcom-hl:hover{background:var(--qcom-dim);color:#f48bff;border-left-color:var(--qcom)}
+.cb.p2    {color:#3a1800}   .cb.p2:hover     {background:var(--p2dim);color:var(--p2color);border-left-color:var(--p2color)}
+.cb.danger{color:#3a1010}   .cb.danger:hover {color:#ef9a9a;border-left-color:#c62828;background:#100505}
+.cb.builder{color:#102030}  .cb.builder:hover{color:#90caf9;border-left-color:var(--sw);background:var(--sw-dim)}
+.tag{font-size:9px;color:var(--text3);margin-left:4px}
+
+/* port-routing badge on buttons */
+.route-p2{border-right:2px solid var(--p2color) !important}
+
+/* ── RIGHT PANEL ──────────────────────────────────────────── */
+.right{display:flex;flex-direction:column;flex:1;min-width:0}
+.tab-row{display:flex;background:var(--bg1);border-bottom:1px solid var(--border);padding:0 12px;gap:1px;flex-shrink:0;flex-wrap:wrap}
+.tab{font-size:10px;padding:5px 10px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.04em;white-space:nowrap}
+.tab:hover{color:var(--text2)}
+.tab.active      {color:var(--teal);  border-bottom-color:#00695c}
+.tab.sw-tab.active{color:var(--blue); border-bottom-color:var(--sw)}
+.tab.hayes-tab.active{color:#b39ddb; border-bottom-color:#7c4dff}
+.tab.apdu-tab.active{color:#80deea;  border-bottom-color:#00bcd4}
+.tab.qcom-tab.active{color:var(--qcom);border-bottom-color:var(--qcom2)}
+
+/* ── TERMINAL ─────────────────────────────────────────────── */
+#tab-terminal{display:flex;flex-direction:column;flex:1;min-height:0}
+.output{flex:1;overflow-y:auto;padding:10px 14px;line-height:1.75;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.output::-webkit-scrollbar{width:3px}
+.output::-webkit-scrollbar-thumb{background:var(--border2)}
+.line{display:flex;gap:8px;align-items:baseline;margin-bottom:0}
+.pfx{min-width:12px;user-select:none;font-size:11px;color:var(--text3)}
+.ts {font-size:10px;min-width:58px;user-select:none;color:#111e2a}
+.text{word-break:break-all}
+/* port badge on lines */
+.portbadge{font-size:8px;padding:0 4px;border-radius:3px;margin-right:3px;flex-shrink:0;line-height:1.4}
+.portbadge.p1{background:#091828;color:#4a8aaa;border:0.5px solid #1976d2}
+.portbadge.p2{background:var(--p2dim);color:var(--p2color);border:0.5px solid var(--p2color)}
+/* line types */
+.line.sent   .pfx{color:var(--sw)}    .line.sent   .text{color:var(--teal)}
+.line.sent2  .pfx{color:var(--p2color)}.line.sent2  .text{color:#ffcc80}
+.line.ok     .text{color:var(--green)}
+.line.err    .text{color:var(--red)}
+.line.info   .text{color:var(--text3);font-style:italic}
+.line.recv   .text{color:var(--text)}
+.line.recv2  .text{color:#ffe0b2}
+.line.cme    .text{color:var(--amber)}
+.line.imsi   .text{color:var(--purple)}
+.line.sw-resp .text{color:var(--blue)}
+.line.sw-note .text{color:#1a4060;font-style:italic}
+.line.hayes-resp .text{color:#b39ddb}
+.line.apdu-resp .text{color:#80deea}
+.line.etsi-resp .text{color:var(--lime)}
+.line.qcom-resp .text{color:var(--qcom)}
+
+/* ── PARAM PANEL ──────────────────────────────────────────── */
+.param-panel{background:var(--bg1);border-top:1px solid var(--border);padding:10px 14px;display:none;flex-shrink:0}
+.param-panel.open{display:block}
+.param-title{font-size:10px;color:var(--text2);letter-spacing:.06em;margin-bottom:8px}
+.param-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px}
+.param-field{display:flex;flex-direction:column;gap:3px}
+.param-label{font-size:9px;color:var(--text3);letter-spacing:.07em}
+.param-input{background:var(--bg0);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 8px;border-radius:4px;outline:none}
+.param-input:focus{border-color:#00695c}
+.param-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.btn-build{background:var(--blue-dim);color:var(--blue);border:1px solid var(--sw);border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-build:hover{background:#0d2540}
+/* port select inside param panel */
+.param-port-sel{display:flex;gap:6px;margin-top:6px;align-items:center}
+.param-port-sel label{font-size:9px;color:var(--text3)}
+.param-port-sel select{background:var(--bg0);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:11px;padding:2px 6px;border-radius:3px;outline:none}
+.btn-close{background:none;color:var(--text3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-close:hover{color:var(--text2)}
+
+/* ── INPUT ROW ────────────────────────────────────────────── */
+.input-row{border-top:1px solid var(--border);padding:7px 12px;display:flex;align-items:center;gap:8px;background:var(--bg1);flex-shrink:0}
+.prompt{color:var(--text3);font-size:13px;white-space:nowrap}
+.cmd-input{flex:1;background:none;border:none;outline:none;color:var(--teal);font-family:var(--font);font-size:13px;caret-color:var(--green)}
+/* port toggle button in input row */
+.port-toggle{font-size:9px;padding:3px 8px;border-radius:4px;cursor:pointer;border:1px solid;font-family:var(--font);transition:background .15s,color .15s}
+.port-toggle.use-p1{background:var(--blue-dim);color:var(--blue);border-color:var(--sw)}
+.port-toggle.use-p2{background:var(--p2dim);color:var(--p2color);border-color:var(--p2color)}
+.btn-clr {background:none;color:var(--text3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-clr:hover{color:var(--text2)}
+.btn-send{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:4px;padding:3px 12px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-send:hover{background:#0f3020}
+
+/* ── REF / HISTORY TABS ───────────────────────────────────── */
+.ref-body{flex:1;overflow-y:auto;padding:12px 16px;line-height:1.85;color:var(--text2);font-size:11.5px;display:none;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.ref-body::-webkit-scrollbar{width:3px}
+.ref-body::-webkit-scrollbar-thumb{background:var(--border2)}
+.rh{font-size:10px;letter-spacing:.08em;border-bottom:1px solid var(--border);padding-bottom:3px;margin:14px 0 6px}
+.rh.std  {color:var(--teal)}  .rh.sw{color:var(--blue)}   .rh.hayes{color:#b39ddb}
+.rh.apdu {color:#80deea}      .rh.etsi{color:var(--lime)} .rh.qcom{color:var(--qcom)}
+.rk{color:var(--text2)}.rd{color:var(--text3)}
+#tab-history{flex:1;overflow-y:auto;padding:10px 14px;display:none;scrollbar-width:thin}
+.hist-row{display:flex;gap:10px;padding:4px 0;border-bottom:0.5px solid var(--border);cursor:pointer;color:var(--text3);font-size:11px}
+.hist-row:hover{color:var(--teal)}
+.hist-n{color:#111e2a;min-width:24px}
+.hist-port{font-size:8px;padding:0 3px;border-radius:2px;flex-shrink:0}
+.hist-port.p1{background:#091828;color:#4a8aaa}
+.hist-port.p2{background:var(--p2dim);color:var(--p2color)}
+
+/* ── OLLAMA SIDE PANEL ────────────────────────────────────── */
+--ollama:#ff6e00;--ollama-dim:#1a0a00;--ollama-border:#3a1800;
+.ollama-fab{position:fixed;bottom:22px;right:22px;width:42px;height:42px;border-radius:50%;background:var(--ollama-dim);border:1.5px solid var(--ollama);color:var(--ollama);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 0 18px #ff6e0033;transition:background .15s,box-shadow .15s;user-select:none}
+.ollama-fab:hover{background:#2a1200;box-shadow:0 0 28px #ff6e0055}
+.ollama-fab .fab-badge{position:absolute;top:-4px;right:-4px;background:var(--ollama);color:#000;border-radius:999px;font-size:8px;padding:1px 4px;display:none}
+.ollama-fab.has-reply .fab-badge{display:block}
+
+.ollama-drawer{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--bg1);border-left:1px solid var(--ollama-border);z-index:300;display:flex;flex-direction:column;transition:right .22s cubic-bezier(.4,0,.2,1);box-shadow:-8px 0 32px #00000088}
+.ollama-drawer.open{right:0}
+
+.od-header{background:var(--bg0);border-bottom:1px solid var(--ollama-border);padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.od-title{font-size:11px;color:var(--ollama);letter-spacing:.08em;flex:1}
+.od-dot{width:8px;height:8px;border-radius:50%;background:#3a1800;flex-shrink:0;transition:background .3s}
+.od-dot.live{background:var(--ollama);box-shadow:0 0 6px var(--ollama)}
+.od-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 4px;font-family:var(--font)}
+.od-close:hover{color:var(--text2)}
+
+.od-config{background:var(--bg0);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex-shrink:0}
+.od-config label{font-size:9px;color:var(--text3);letter-spacing:.06em}
+.od-inp{background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:11px;padding:3px 7px;border-radius:4px;outline:none}
+.od-inp:focus{border-color:var(--ollama)}
+.od-inp.url{width:170px}
+.od-inp.model{width:120px}
+.od-btn{background:var(--ollama-dim);color:var(--ollama);border:1px solid var(--ollama-border);border-radius:4px;padding:3px 9px;font-size:10px;cursor:pointer;font-family:var(--font);white-space:nowrap}
+.od-btn:hover{background:#2a1200;border-color:var(--ollama)}
+.od-btn.sm{padding:2px 7px;font-size:9px}
+.od-btn.danger{border-color:#3a1010;color:#ef9a9a}
+.od-btn.danger:hover{background:#100505}
+
+.od-ctx{background:var(--bg0);border-bottom:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.od-ctx label{font-size:9px;color:var(--text3)}
+.od-ctx-toggle{appearance:none;width:28px;height:14px;background:var(--border2);border-radius:999px;cursor:pointer;position:relative;outline:none;transition:background .15s;flex-shrink:0}
+.od-ctx-toggle:checked{background:var(--ollama)}
+.od-ctx-toggle::after{content:'';position:absolute;width:10px;height:10px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left .15s}
+.od-ctx-toggle:checked::after{left:16px}
+.od-ctx-lines{font-size:9px;color:var(--text3);width:36px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 4px;font-family:var(--font);color:var(--text);outline:none}
+
+.od-chat{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--ollama-border) transparent}
+.od-chat::-webkit-scrollbar{width:3px}
+.od-chat::-webkit-scrollbar-thumb{background:var(--ollama-border)}
+
+.od-msg{max-width:92%;padding:7px 10px;border-radius:6px;font-size:11.5px;line-height:1.65;word-break:break-word;white-space:pre-wrap}
+.od-msg.user{align-self:flex-end;background:#1a0a00;border:0.5px solid var(--ollama-border);color:#ffcc99}
+.od-msg.assistant{align-self:flex-start;background:var(--bg2);border:0.5px solid var(--border2);color:var(--text)}
+.od-msg.system{align-self:center;background:none;color:var(--text3);font-size:10px;font-style:italic;border:none;padding:2px 0}
+.od-msg.error{align-self:flex-start;background:#100505;border:0.5px solid #3a1010;color:#ef9a9a}
+.od-msg .od-ts{font-size:9px;color:var(--text3);margin-top:4px}
+.od-msg.assistant .od-inject{font-size:9px;margin-top:5px;padding-top:4px;border-top:0.5px solid var(--border);color:var(--text3);cursor:pointer}
+.od-msg.assistant .od-inject:hover{color:var(--teal)}
+.od-typing{align-self:flex-start;color:var(--text3);font-size:11px;font-style:italic;padding:4px 10px}
+.od-typing::after{content:'▋';animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+.od-foot{border-top:1px solid var(--ollama-border);padding:8px 10px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;background:var(--bg0)}
+.od-foot-row{display:flex;gap:6px;align-items:flex-end}
+.od-textarea{flex:1;background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:11.5px;padding:6px 8px;border-radius:4px;outline:none;resize:none;min-height:38px;max-height:120px;line-height:1.5}
+.od-textarea:focus{border-color:var(--ollama)}
+.od-send{background:var(--ollama-dim);color:var(--ollama);border:1px solid var(--ollama);border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:var(--font);align-self:flex-end}
+.od-send:hover{background:#2a1200}
+.od-send:disabled{opacity:.4;cursor:default}
+.od-foot-tools{display:flex;gap:5px;flex-wrap:wrap}
+.od-tool-btn{font-size:9px;padding:2px 7px;border-radius:3px;cursor:pointer;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text3);font-family:var(--font)}
+.od-tool-btn:hover{color:var(--ollama);border-color:var(--ollama-border)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ TITLEBAR ══════════════════════════════════════════════ -->
+<div class="titlebar">
+  <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+  <span class="title-text">AT TERMINAL · S21 Exynos/Qualcomm ATCI · Dual Serial Port · APDU · Hayes</span>
+  <div class="quickbar">
+    <span class="qpill qpill-h" onclick="sendCmd('ATZ')">ATZ</span>
+    <span class="qpill qpill-q" onclick="sendCmd('AT!GSTATUS?')">GSTATUS</span>
+    <span class="qpill qpill-b" onclick="sendCmd('AT+CIMI')">IMSI</span>
+    <span class="qpill qpill-b" onclick="sendCmd('AT+CFUN?')">CFUN</span>
+    <span class="qpill qpill-a" onclick="sendCmd('AT+CSIM=10,&quot;0070000001&quot;')">open ch</span>
+    <!-- Port 1 = S21 modem -->
+    <span class="qpill qpill-b" id="p1-pill" title="Click to connect/disconnect S21 modem (Port 1)">S21 OFFLINE</span>
+    <!-- Port 2 = external serial modem -->
+    <span class="qpill qpill-p2" id="p2-pill" title="Click to connect/disconnect external modem (Port 2)">PORT2 OFF</span>
+    <!-- Ollama -->
+    <span class="qpill" id="ollama-qpill" onclick="ollamaToggle()"
+          style="background:var(--ollama-dim);color:var(--ollama);border-color:var(--ollama)"
+          title="Open Ollama AI side panel">🦙 Ollama</span>
+  </div>
+</div>
+
+<div class="body">
+<div class="sidebar"><div class="sidebar-scroll">
+
+<!-- ══ QUALCOMM / SHANNON S21 ══════════════════════════════ -->
+<div class="group" style="border-top:2px solid #2a005a">
+  <button class="group-hdr qcom" onclick="tg(this)"><span>&#9670; qualcomm ATCI — S21 identity</span><span class="garrow open">&#9658;</span></button>
+  <div class="gbody open">
+    <button class="cb qcom-hl" onclick="sendCmd('ATI')">ATI <span class="tag">product ID</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CGMM')">AT+CGMM <span class="tag">model</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CGMI')">AT+CGMI <span class="tag">manufacturer</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CGMR')">AT+CGMR <span class="tag">firmware rev</span></button>
+    <button class="cb qcom-hl" onclick="sendCmd('AT+CGSN')">AT+CGSN <span class="tag">IMEI</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CGSN=1')">AT+CGSN=1 <span class="tag">IMEI (fmt)</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CLAC')">AT+CLAC <span class="tag">list all cmds</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CMEE=1')">AT+CMEE=1 <span class="tag">verbose errors</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT+CMEE=2')">AT+CMEE=2 <span class="tag">very verbose</span></button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr qcom" onclick="tg(this)"><span>&#9670; qualcomm ATCI — radio status</span><span class="garrow open">&#9658;</span></button>
+  <div class="gbody open">
+    <button class="cb qcom-hl" onclick="sendCmd('AT!GSTATUS?')">AT!GSTATUS? <span class="tag">full radio status</span></button>
+    <button class="cb qcom-hl" onclick="sendCmd('AT!STATUS?')">AT!STATUS? <span class="tag">modem status</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!HWID?')">AT!HWID? <span class="tag">hardware ID</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!BAND?')">AT!BAND? <span class="tag">current band</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!GETBAND?')">AT!GETBAND? <span class="tag">band list</span></button>
+    <button class="cb qcom-hl" onclick="sendCmd('AT!RSSI?')">AT!RSSI? <span class="tag">RSSI</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!LTEINFO?')">AT!LTEINFO? <span class="tag">LTE serving cell</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!NRINFO?')">AT!NRINFO? <span class="tag">5G NR info</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!NRCA?')">AT!NRCA? <span class="tag">5G carrier agg</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!LTECA?')">AT!LTECA? <span class="tag">LTE carrier agg</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!PCINFO?')">AT!PCINFO? <span class="tag">primary cell</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SCINFO?')">AT!SCINFO? <span class="tag">secondary cell</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SINRINFO?')">AT!SINRINFO? <span class="tag">SINR</span></button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr qcom" onclick="tg(this)"><span>&#9670; qualcomm ATCI — NV / debug</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb qcom-hl" onclick="sendCmd('AT!ENTERCND=&quot;A710&quot;')">AT!ENTERCND <span class="tag">unlock diag</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SHOWPHY?')">AT!SHOWPHY? <span class="tag">PHY layer</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!GETRAT?')">AT!GETRAT? <span class="tag">current RAT</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SELRAT?')">AT!SELRAT? <span class="tag">selected RAT</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SELRAT=06')">AT!SELRAT=06 <span class="tag">LTE only</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SELRAT=71')">AT!SELRAT=71 <span class="tag">5G auto</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!SELRAT=00')">AT!SELRAT=00 <span class="tag">auto all</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!NVREAD?')">AT!NVREAD? <span class="tag">NV read (qry)</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!PRLREFRESH?')">AT!PRLREFRESH? <span class="tag">PRL refresh</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT!COREDUMP?')">AT!COREDUMP? <span class="tag">crash dump</span></button>
+    <button class="cb qcom danger" onclick="sendCmd('AT!NVDEFAULTS')">AT!NVDEFAULTS <span class="tag">factory NV ⚠</span></button>
+    <button class="cb qcom danger" onclick="sendCmd('AT!RESET')">AT!RESET <span class="tag">soft reset ⚠</span></button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr qcom" onclick="tg(this)"><span>&#9670; qualcomm ATCI — Shannon/Exynos</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb qcom" onclick="sendCmd('AT%MDMCTRL?')">AT%MDMCTRL? <span class="tag">modem ctrl</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%BANDSEL?')">AT%BANDSEL? <span class="tag">band sel</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%CELLMEAS?')">AT%CELLMEAS? <span class="tag">cell measure</span></button>
+    <button class="cb qcom-hl" onclick="sendCmd('AT%NRPOLICY?')">AT%NRPOLICY? <span class="tag">5G policy</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%NRCA?')">AT%NRCA? <span class="tag">NR carrier agg</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%MMCINFO?')">AT%MMCINFO? <span class="tag">MMC info</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%PCEL?')">AT%PCEL? <span class="tag">primary cell</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%SCEL?')">AT%SCEL? <span class="tag">secondary cell</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%SIMSWITCH?')">AT%SIMSWITCH? <span class="tag">SIM switch</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%VOLTE?')">AT%VOLTE? <span class="tag">VoLTE status</span></button>
+    <button class="cb qcom" onclick="sendCmd('AT%VONR?')">AT%VONR? <span class="tag">VoNR status</span></button>
+  </div>
+</div>
+
+<!-- ══ STANDARD AT / MODEM CONTROL ═══════════════════════════ -->
+<div class="group" style="border-top:1px solid #1a2535">
+  <button class="group-hdr std" onclick="tg(this)"><span>modem control</span><span class="garrow open">&#9658;</span></button>
+  <div class="gbody open">
+    <button class="cb std" onclick="sendCmd('AT+CGMM')">AT+CGMM <span class="tag">model</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CGMI')">AT+CGMI <span class="tag">manufacturer</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CGMR')">AT+CGMR <span class="tag">revision</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CGSN')">AT+CGSN <span class="tag">IMEI</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CMEE=1')">AT+CMEE=1 <span class="tag">verbose err</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CLAC')">AT+CLAC <span class="tag">list all cmds</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CFUN?')">AT+CFUN? <span class="tag">functionality</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CFUN=1')">AT+CFUN=1 <span class="tag">full power</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CFUN=0')">AT+CFUN=0 <span class="tag">minimum / RF off</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CFUN=4')">AT+CFUN=4 <span class="tag">disable TX/RX</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CCLK?')">AT+CCLK? <span class="tag">clock</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CTZR=1')">AT+CTZR=1 <span class="tag">timezone URC</span></button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr std" onclick="tg(this)"><span>network / carrier</span><span class="garrow open">&#9658;</span></button>
+  <div class="gbody open">
+    <button class="cb hl" onclick="sendCmd('AT+CIMI')">AT+CIMI <span class="tag">IMSI</span></button>
+    <button class="cb hl" onclick="sendCmd('AT+COPS?')">AT+COPS? <span class="tag">operator</span></button>
+    <button class="cb std" onclick="sendCmd('AT+COPS=?')">AT+COPS=? <span class="tag">scan nets</span></button>
+    <button class="cb hl" onclick="sendCmd('AT+CREG?')">AT+CREG? <span class="tag">reg+LAC/CI</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CREG=2')">AT+CREG=2 <span class="tag">enable loc URC</span></button>
+    <button class="cb hl" onclick="sendCmd('AT+CEREG?')">AT+CEREG? <span class="tag">LTE reg</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CEREG=2')">AT+CEREG=2 <span class="tag">LTE loc URC</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CGREG=2')">AT+CGREG=2 <span class="tag">GPRS loc URC</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CSQ')">AT+CSQ <span class="tag">signal</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CPSI?')">AT+CPSI? <span class="tag">cell info</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CNUM')">AT+CNUM <span class="tag">MSISDN</span></button>
+    <button class="cb std" onclick="sendCmd('AT+COPN')">AT+COPN <span class="tag">operator names</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CPOL?')">AT+CPOL? <span class="tag">pref PLMN</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CIND?')">AT+CIND? <span class="tag">indicators</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CNMI=2,1,0,0,0')">AT+CNMI <span class="tag">new msg ind</span></button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr std" onclick="tg(this)"><span>SMS</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb std" onclick="sendCmd('AT+CMGF=1')">AT+CMGF=1 <span class="tag">text mode</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CMGF=0')">AT+CMGF=0 <span class="tag">PDU mode</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CMGL=&quot;ALL&quot;')">AT+CMGL="ALL"</button>
+    <button class="cb std" onclick="sendCmd('AT+CPMS?')">AT+CPMS? <span class="tag">storage</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CSCA?')">AT+CSCA? <span class="tag">SMSC</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CSDH=1')">AT+CSDH=1 <span class="tag">show hdr</span></button>
+    <button class="cb builder" onclick="showPanel('silent')">silent SMS <span class="tag">class 0</span></button>
+    <button class="cb builder" onclick="showPanel('pdu')">PDU builder <span class="tag">raw</span></button>
+    <button class="cb builder" onclick="showPanel('sms_text')">send SMS text</button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr std" onclick="tg(this)"><span>USSD</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb builder" onclick="showPanel('ussd')">AT+CUSD builder</button>
+    <button class="cb std" onclick="sendCmd('AT+CUSD=0')">AT+CUSD=0 <span class="tag">cancel</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*#100#&quot;,15')">*#100# <span class="tag">balance</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*#06#&quot;,15')">*#06# <span class="tag">IMEI</span></button>
+    <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*135#&quot;,15')">*135# <span class="tag">own number</span></button>
+  </div>
+</div>
+
+<!-- ══ ETSI / 3GPP ═══════════════════════════════════════════ -->
+<div class="group" style="border-top:1px solid #102010">
+  <button class="group-hdr etsi" onclick="tg(this)"><span>&#9670; ETSI — SIM access (TS 27.007)</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb etsi hl" onclick="sendCmd('AT+CIMI')">AT+CIMI <span class="tag">IMSI</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+ICCID')">AT+ICCID <span class="tag">ICCID</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+CPIN?')">AT+CPIN? <span class="tag">PIN status</span></button>
+    <button class="cb etsi hl" onclick="sendCmd('AT+CRSM=176,28423,0,0,10')">AT+CRSM EF_IMSI</button>
+    <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28618,0,0,11')">AT+CRSM EF_SPN</button>
+    <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28486,0,0,16')">AT+CRSM EF_PLMN</button>
+    <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28589,0,0,2')">AT+CRSM EF_ACC</button>
+    <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28438,0,0,4')">AT+CRSM EF_LOCI</button>
+    <button class="cb etsi hl" onclick="sendCmd('AT+CUAD?')">AT+CUAD? <span class="tag">app discovery</span></button>
+    <button class="cb etsi hl" onclick="sendCmd('AT+CCHO=&quot;A0000000871002FF49FF&quot;')">AT+CCHO USIM AID</button>
+    <button class="cb etsi" onclick="sendCmd('AT+CCHC=1')">AT+CCHC=1 <span class="tag">close channel</span></button>
+    <button class="cb etsi builder" onclick="showPanel('cgla')">AT+CGLA builder <span class="tag">logical ch</span></button>
+    <button class="cb etsi builder" onclick="showPanel('csim')">AT+CSIM builder <span class="tag">raw APDU</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+CLCK=&quot;SC&quot;,2')">AT+CLCK SC,2 <span class="tag">SIM lock qry</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+CPBS?')">AT+CPBS? <span class="tag">pb storage</span></button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr etsi" onclick="tg(this)"><span>&#9670; ETSI — data / PDP</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb etsi" onclick="sendCmd('AT+CGDCONT?')">AT+CGDCONT? <span class="tag">PDP contexts</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+CGACT?')">AT+CGACT? <span class="tag">active PDP</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+CGPADDR')">AT+CGPADDR <span class="tag">IP addr</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+CGCONTRDP')">AT+CGCONTRDP <span class="tag">dyn params</span></button>
+    <button class="cb etsi builder" onclick="showPanel('pdp')">set APN builder</button>
+  </div>
+</div>
+
+<div class="group">
+  <button class="group-hdr etsi" onclick="tg(this)"><span>&#9670; ETSI — STK / OTA</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb etsi hl" onclick="sendCmd('AT+STKPRO?')">AT+STKPRO? <span class="tag">proactive cmd</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+STKCNF=1')">AT+STKCNF=1 <span class="tag">confirm enable</span></button>
+    <button class="cb etsi builder" onclick="showPanel('stktr')">AT+STKTR builder</button>
+    <button class="cb etsi builder" onclick="showPanel('stkenv')">AT+STKENV builder</button>
+    <button class="cb etsi" onclick="sendCmd('AT+CMGF=0')">AT+CMGF=0 <span class="tag">PDU for OTA SMS</span></button>
+  </div>
+</div>
+
+<!-- ══ HAYES ═════════════════════════════════════════════════ -->
+<div class="group" style="border-top:2px solid #1a0a40">
+  <button class="group-hdr hayes" onclick="tg(this)"><span>&#9670; hayes — original AT set</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb hayes" onclick="sendCmd('AT')">AT <span class="tag">ping</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATZ')">ATZ <span class="tag">reset to profile</span></button>
+    <button class="cb hayes" onclick="sendCmd('AT&F')">AT&amp;F <span class="tag">factory defaults</span></button>
+    <button class="cb hayes" onclick="sendCmd('AT&W')">AT&amp;W <span class="tag">save profile</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATE0')">ATE0 <span class="tag">echo off</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATE1')">ATE1 <span class="tag">echo on</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATV0')">ATV0 <span class="tag">numeric result</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATV1')">ATV1 <span class="tag">verbose result</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATQ0')">ATQ0 <span class="tag">result codes on</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATQ1')">ATQ1 <span class="tag">result codes off</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATH')">ATH <span class="tag">hangup</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATA')">ATA <span class="tag">answer call</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATI')">ATI <span class="tag">product ID</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATI3')">ATI3 <span class="tag">firmware rev</span></button>
+    <button class="cb hayes" onclick="sendCmd('AT&C1')">AT&amp;C1 <span class="tag">DCD follows carrier</span></button>
+    <button class="cb hayes" onclick="sendCmd('AT&D2')">AT&amp;D2 <span class="tag">DTR hangup</span></button>
+    <button class="cb hayes" onclick="sendCmd('AT&K3')">AT&amp;K3 <span class="tag">RTS/CTS</span></button>
+    <button class="cb hayes" onclick="sendCmd('ATS0=0')">ATS0=0 <span class="tag">auto-answer off</span></button>
+    <button class="cb hayes builder" onclick="showPanel('dial')">ATD builder <span class="tag">dial</span></button>
+  </div>
+</div>
+
+<!-- ══ APDU / ISO 7816 ═══════════════════════════════════════ -->
+<div class="group" style="border-top:1px solid #00303a">
+  <button class="group-hdr apdu" onclick="tg(this)"><span>&#9670; APDU / ISO 7816-4</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;0070000001&quot;')">MANAGE CHANNEL open</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=8,&quot;00708001&quot;')">MANAGE CHANNEL close ch1</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;00A4080C027FFF&quot;')">SELECT ADF_USIM</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;00A4080C026F07&quot;')">SELECT EF_IMSI</button>
+    <button class="cb apdu hl" onclick="sendCmd('AT+CSIM=10,&quot;00B0000009&quot;')">READ BINARY EF_IMSI</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;00A4080C026F46&quot;')">SELECT EF_SPN</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=18,&quot;00CA009F7F00&quot;')">GET DATA CPLC</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;00F2000C00&quot;')">GET STATUS</button>
+    <button class="cb apdu hl" onclick="sendCmd('AT+CSIM=10,&quot;80F2800002&quot;')">GP GET STATUS ISD</button>
+    <button class="cb apdu" onclick="sendCmd('AT+CSIM=12,&quot;80F2400002&quot;')">GP GET STATUS apps</button>
+    <button class="cb apdu builder" onclick="showPanel('csim')">AT+CSIM builder</button>
+    <button class="cb apdu builder" onclick="showPanel('cgla')">AT+CGLA builder</button>
+  </div>
+</div>
+
+<!-- ══ SIERRA / WAVECOM ═══════════════════════════════════════ -->
+<div class="group" style="border-top:1px solid #0a1828">
+  <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra HL / Wavecom</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <button class="cb sw" onclick="sendCmd('AT!GSTATUS?')">AT!GSTATUS? <span class="tag">radio status</span></button>
+    <button class="cb sw hl" onclick="sendCmd('AT!ENTERCND=&quot;A710&quot;')">AT!ENTERCND <span class="tag">unlock</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!HWID?')">AT!HWID? <span class="tag">hardware ID</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!BAND?')">AT!BAND? <span class="tag">band</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!RSSI?')">AT!RSSI? <span class="tag">RSSI</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!LTEINFO?')">AT!LTEINFO? <span class="tag">LTE cell</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!SHOWPHY?')">AT!SHOWPHY? <span class="tag">PHY layer</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!GETRAT?')">AT!GETRAT? <span class="tag">RAT</span></button>
+    <button class="cb sw" onclick="sendCmd('AT!NVREAD?')">AT!NVREAD? <span class="tag">NV read</span></button>
+    <button class="cb sw" onclick="sendCmd('AT+WHWV?')">AT+WHWV? <span class="tag">hw version</span></button>
+    <button class="cb sw" onclick="sendCmd('AT+WSVN?')">AT+WSVN? <span class="tag">sw version</span></button>
+    <button class="cb sw hl" onclick="sendCmd('AT+WIMI?')">AT+WIMI? <span class="tag">IMSI (HL)</span></button>
+    <button class="cb sw" onclick="sendCmd('AT+CCED=0,1')">AT+CCED=0,1 <span class="tag">serving cell</span></button>
+    <button class="cb sw" onclick="sendCmd('AT+CCED=2,7')">AT+CCED=2,7 <span class="tag">+6 neighbours</span></button>
+    <button class="cb sw danger" onclick="sendCmd('AT!NVDEFAULTS')">AT!NVDEFAULTS <span class="tag">factory NV ⚠</span></button>
+    <button class="cb sw danger" onclick="sendCmd('AT!RESET')">AT!RESET <span class="tag">soft reset ⚠</span></button>
+  </div>
+</div>
+
+<!-- ══ PORT 2 — SEND TO EXTERNAL MODEM ══════════════════════ -->
+<div class="group" style="border-top:2px solid #3a1800">
+  <button class="group-hdr p2" onclick="tg(this)"><span>&#9670; port 2 — external modem cmds</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <small style="display:block;padding:4px 10px;color:var(--text3);font-size:9px">Commands below route to Port 2 (external COM). Port 2 must be connected.</small>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT')">AT <span class="tag">ping port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('ATZ')">ATZ <span class="tag">reset port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('ATI')">ATI <span class="tag">ID port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('ATE0')">ATE0 <span class="tag">echo off</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT+CGMM')">AT+CGMM <span class="tag">model port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT+CIMI')">AT+CIMI <span class="tag">IMSI port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT+CSQ')">AT+CSQ <span class="tag">signal port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT+CREG?')">AT+CREG? <span class="tag">reg port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT+COPS?')">AT+COPS? <span class="tag">operator port 2</span></button>
+    <button class="cb p2 route-p2" onclick="sendCmdPort2('AT+CFUN?')">AT+CFUN? <span class="tag">func port 2</span></button>
+    <button class="cb p2 route-p2" onclick="showPanel('fwd_p2')">forward last S21 resp → port 2 <span class="tag">bridge</span></button>
+  </div>
+</div>
+
+<!-- ══ MTK HELIO — HISTORICAL REFERENCE ══════════════════════ -->
+<div class="group" style="border-top:1px solid #1a2800;opacity:0.7">
+  <button class="group-hdr etsi" onclick="tg(this)" style="color:#3a6010;background:#040a02"><span>&#9670; MTK Helio — historical ref only</span><span class="garrow">&#9658;</span></button>
+  <div class="gbody">
+    <small style="display:block;padding:4px 10px;color:#2a4010;font-size:9px">A22/Opel S65 reference — kept for comparison. Not S21.</small>
+    <button class="cb etsi" onclick="sendCmd('AT+ERAT?')">AT+ERAT? <span class="tag">RAT mode</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+EMREG?')">AT+EMREG? <span class="tag">eng reg</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+ECSQ?')">AT+ECSQ? <span class="tag">signal quality</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+ECELL?')">AT+ECELL? <span class="tag">cell info</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+EINFO?')">AT+EINFO? <span class="tag">chip info</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+EIMS?')">AT+EIMS? <span class="tag">IMS</span></button>
+    <button class="cb etsi" onclick="sendCmd('AT+EGMR=0,7')">AT+EGMR=0,7 <span class="tag">read IMEI</span></button>
+  </div>
+</div>
+
+</div></div><!-- end sidebar -->
+
+<!-- ══ RIGHT PANEL ═══════════════════════════════════════════ -->
+<div class="right">
+
+  <!-- tab row -->
+  <div class="tab-row">
+    <div class="tab active"      onclick="switchTab('terminal',this)">terminal</div>
+    <div class="tab"             onclick="switchTab('history',this)">history</div>
+    <div class="tab hayes-tab"   onclick="switchTab('hayes',this)">hayes ref</div>
+    <div class="tab apdu-tab"    onclick="switchTab('apdu',this)">APDU / 7816-4</div>
+    <div class="tab sw-tab"      onclick="switchTab('sw',this)">sierra ref</div>
+    <div class="tab"             onclick="switchTab('etsi',this)">ETSI / 3GPP</div>
+    <div class="tab qcom-tab"    onclick="switchTab('qcom',this)">Qualcomm / S21</div>
+  </div>
+
+  <!-- ── TERMINAL TAB ──────────────────────────────────────── -->
+  <div id="tab-terminal">
+    <div class="output" id="output"></div>
+
+    <!-- param/builder panel (hidden until showPanel() called) -->
+    <div class="param-panel" id="param-panel">
+      <div class="param-title" id="panel-title"></div>
+      <div class="param-grid"  id="param-grid"></div>
+      <div class="param-port-sel">
+        <label>Send via:</label>
+        <select id="panel-port-sel">
+          <option value="1">Port 1 — S21 modem</option>
+          <option value="2">Port 2 — external modem</option>
+        </select>
+      </div>
+      <div class="param-btns">
+        <button class="btn-build" onclick="buildFromPanel()">build &amp; send</button>
+        <button class="btn-close" onclick="closePanel()">close</button>
+      </div>
+    </div>
+
+    <!-- input row -->
+    <div class="input-row">
+      <span class="prompt">AT&gt;</span>
+      <input class="cmd-input" id="cmd-input"
+             placeholder="type command… arrow-up = history"
+             autocomplete="off" spellcheck="false"/>
+      <!-- port toggle: click to flip between P1 / P2 for manual input -->
+      <button class="port-toggle use-p1" id="port-toggle-btn" onclick="toggleInputPort()"
+              title="Toggle which port the typed command goes to">P1</button>
+      <button class="btn-clr"  onclick="clearOutput()">clear</button>
+      <button class="btn-send" onclick="sendFromInput()">send &#x23CE;</button>
+    </div>
+  </div><!-- end tab-terminal -->
+
+  <!-- ── HISTORY TAB ────────────────────────────────────────── -->
+  <div class="ref-body" id="tab-history"></div>
+
+  <!-- ── HAYES REF TAB ─────────────────────────────────────── -->
+  <div class="ref-body" id="tab-hayes">
+    <div class="rh hayes">Hayes AT command set — origin (1977–1981)</div>
+    The Hayes Smartmodem command set is the root every subsequent AT dialect grows from.
+    All GSM / CDMA / LTE extensions inherit its syntax and session model.<br><br>
+    <span class="rk">AT</span> — attention prefix. Modem watches for this constantly.<br>
+    <span class="rk">ATZ</span> — reset to stored NVRAM profile. Does <em>not</em> restore factory defaults.<br>
+    <span class="rk">AT&amp;F</span> — restore factory defaults. Combine with AT&amp;W to persist.<br>
+    <span class="rk">AT&amp;W</span> — write current config to NVRAM profile.<br>
+    <span class="rk">ATE0 / ATE1</span> — echo off / on. E0 stops modem echoing commands back — useful for scripting.<br>
+    <span class="rk">ATV0 / ATV1</span> — result code format: V0=numeric (0=OK,4=ERROR), V1=verbose text.<br>
+    <span class="rk">ATQ0 / ATQ1</span> — Q1 suppresses all result codes.<br>
+    <span class="rk">ATX0–X4</span> — extended result code set. X4 enables connect-speed codes.<br>
+    <span class="rk">ATH</span> — on-hook (hang up).<br>
+    <span class="rk">ATA</span> — answer incoming call.<br>
+    <span class="rk">ATO</span> — return to online data mode from command mode.<br>
+    <span class="rk">AT+++</span> — escape sequence: pause-+++- pause returns to command mode mid-call.<br>
+    <span class="rk">ATD</span> — dial. ATDTnumber (tone), ATDPnumber (pulse), ATDL (redial), ATD; (dial, stay in cmd mode).<br>
+    <span class="rk">AT&amp;C1</span> — DCD follows actual carrier state.<br>
+    <span class="rk">AT&amp;D2</span> — hang up + return to cmd mode when DTR drops.<br>
+    <span class="rk">AT&amp;K3</span> — RTS/CTS hardware flow control.<br>
+
+    <div class="rh hayes">S-registers</div>
+    <span class="rk">ATS0=n</span> — auto-answer after n rings. 0 = disabled.<br>
+    <span class="rk">ATS2=43</span> — escape character (ASCII 43 = '+').<br>
+    <span class="rk">ATS3=13</span> — line terminator (CR).<br>
+    <span class="rk">ATS7=60</span> — carrier wait timeout (seconds).<br>
+    <span class="rk">ATS12=50</span> — escape guard time (fiftieths of a second each side of +++).<br>
+
+    <div class="rh hayes">Lineage into GSM</div>
+    GSM 07.07 (1994) kept Hayes intact and added the <code>+</code> namespace for cellular extensions.
+    Every Samsung modem — including the S21's Qualcomm or Exynos baseband — still boots responding to ATZ and AT&amp;F.
+    That's the architectural debt: a 1981 command model shimmed onto 5G.
+  </div>
+
+  <!-- ── APDU / 7816-4 REF TAB ─────────────────────────────── -->
+  <div class="ref-body" id="tab-apdu">
+    <div class="rh apdu">ISO/IEC 7816-4 — interindustry APDU (1995)</div>
+    Foundation for all smart cards: SIM, USIM, JavaCard, EMV. Every newer layer
+    (GlobalPlatform, EMV, NFC/ISO 14443, ETSI TS 102.221) stacks on top.<br><br>
+
+    <div class="rh apdu">APDU structure</div>
+    Command: <span class="rk">CLA INS P1 P2 [Lc] [Data] [Le]</span><br>
+    Response: <span class="rk">[Data] SW1 SW2</span><br><br>
+    <span class="rk">CLA</span> — 00=ISO, 80/84=GlobalPlatform, A0=GSM legacy, 0X=logical channel X<br>
+    <span class="rk">INS</span> — instruction byte<br>
+    <span class="rk">Lc</span> — command data length; <span class="rk">Le</span> — expected response length (00=max)<br>
+    <span class="rk">SW1 SW2</span> — 90 00=OK, 61 XX=more data, 6C XX=wrong Le, 69 82=security fail, 6A 82=not found<br>
+
+    <div class="rh apdu">Core commands (CLA=00)</div>
+    <span class="rk">00 A4 04 00 Lc AID</span> — SELECT by AID<br>
+    <span class="rk">00 A4 00 00 02 FID</span> — SELECT by file ID (3F00=MF, 7FFF=ADF_USIM)<br>
+    <span class="rk">00 B0 P1 P2 Le</span> — READ BINARY<br>
+    <span class="rk">00 D6 P1 P2 Lc Data</span> — UPDATE BINARY<br>
+    <span class="rk">00 B2 Rec P2 Le</span> — READ RECORD<br>
+    <span class="rk">00 C0 00 00 Le</span> — GET RESPONSE (after 61 XX)<br>
+    <span class="rk">00 20 00 01 Lc PIN</span> — VERIFY PIN (pad with FF to 8 bytes)<br>
+    <span class="rk">00 70 00 00 01</span> — MANAGE CHANNEL open<br>
+    <span class="rk">00 70 80 CN</span> — MANAGE CHANNEL close channel CN<br>
+    <span class="rk">00 88 00 00 Lc RAND</span> — INTERNAL AUTHENTICATE (GSM/UMTS AKA)<br>
+    <span class="rk">00 CA 9F 7F 00</span> — GET DATA CPLC<br>
+
+    <div class="rh apdu">GlobalPlatform (CLA=80/84)</div>
+    <span class="rk">80 CA 9F 7F 00</span> — GET DATA CPLC (GP namespace)<br>
+    <span class="rk">80 F2 80 00 02 4F00</span> — GET STATUS — Issuer Security Domain<br>
+    <span class="rk">80 F2 40 00 02 4F00</span> — GET STATUS — all applications<br>
+    <span class="rk">84 E4 00 80 Lc AID</span> — DELETE applet/package (needs SCP02/03)<br>
+    <span class="rk">84 E6 02 00 Lc Data</span> — INSTALL [for install]<br>
+
+    <div class="rh apdu">Key EF file IDs (USIM)</div>
+    <span class="rk">3F00</span>=MF &nbsp;<span class="rk">7FFF</span>=ADF_USIM &nbsp;<span class="rk">6F07</span>=EF_IMSI<br>
+    <span class="rk">6F46</span>=EF_SPN &nbsp;<span class="rk">6F30</span>=EF_PLMN &nbsp;<span class="rk">6F78</span>=EF_ACC<br>
+    <span class="rk">6F7E</span>=EF_LOCI &nbsp;<span class="rk">6FE3</span>=EF_EPSLOCI &nbsp;<span class="rk">6F38</span>=EF_UST<br>
+    <span class="rk">6FAD</span>=EF_AD (MNC digit count, op mode) &nbsp;<span class="rk">6F40</span>=EF_MSISDN<br>
+
+    <div class="rh apdu">Status words — full decode</div>
+    <span class="rk">90 00</span> — success &nbsp;<span class="rk">61 XX</span> — XX bytes pending (GET RESPONSE)<br>
+    <span class="rk">63 CX</span> — X retries left (PIN fail) &nbsp;<span class="rk">69 82</span> — security not satisfied<br>
+    <span class="rk">69 83</span> — blocked (use PUK) &nbsp;<span class="rk">6A 82</span> — file/app not found<br>
+    <span class="rk">6C XX</span> — wrong Le; reissue with XX &nbsp;<span class="rk">6D 00</span> — INS not supported<br>
+
+    <div class="rh apdu">AT+CSIM usage</div>
+    <span class="rk">AT+CSIM=length,"hex_apdu"</span> — length = total hex chars (bytes × 2)<br>
+    Example — read EF_IMSI:<br>
+    1. AT+CSIM=14,"00A4080C027FFF" — SELECT ADF_USIM<br>
+    2. AT+CSIM=14,"00A4080C026F07" — SELECT EF_IMSI<br>
+    3. AT+CSIM=10,"00B0000009" — READ BINARY 9 bytes
+  </div>
+
+  <!-- ── SIERRA / WAVECOM REF TAB ───────────────────────────── -->
+  <div class="ref-body" id="tab-sw">
+    <div class="rh sw">Sierra Wireless / Wavecom HL-series reference</div>
+    The Sierra/Wavecom HL series extended standard AT with the <code>AT!</code> namespace for
+    engineering diagnostics. Many of these (especially AT!GSTATUS, AT!BAND, AT!ENTERCND)
+    are also present on Qualcomm-based phones via ATCI mode — including the S21 Snapdragon variant.<br><br>
+
+    <div class="rh sw">Radio status</div>
+    <span class="rk">AT!GSTATUS?</span> — comprehensive radio status: RAT, band, RSSI, RSRP, RSRQ, SINR, serving cell.<br>
+    <span class="rk">AT!STATUS?</span> — modem general status.<br>
+    <span class="rk">AT!RSSI?</span> — RSSI in dBm.<br>
+    <span class="rk">AT!LTEINFO?</span> — LTE serving cell: PCI, EARFCN, BW, RSRP, RSRQ, SINR.<br>
+    <span class="rk">AT!NRINFO?</span> — 5G NR info (where supported).<br>
+    <span class="rk">AT!BAND?</span> — currently active band(s).<br>
+    <span class="rk">AT!GETBAND?</span> — full band list.<br>
+
+    <div class="rh sw">RAT selection</div>
+    <span class="rk">AT!GETRAT?</span> — currently active RAT.<br>
+    <span class="rk">AT!SELRAT?</span> — selected RAT preference.<br>
+    <span class="rk">AT!SELRAT=00</span> — auto (all RATs).<br>
+    <span class="rk">AT!SELRAT=06</span> — LTE only.<br>
+    <span class="rk">AT!SELRAT=71</span> — 5G NR auto.<br>
+
+    <div class="rh sw">NV / debug access</div>
+    <span class="rk">AT!ENTERCND="A710"</span> — unlock engineering/diagnostic commands. Password is device-specific; A710 is common default.<br>
+    <span class="rk">AT!HWID?</span> — hardware ID.<br>
+    <span class="rk">AT!SHOWPHY?</span> — PHY layer parameters.<br>
+    <span class="rk">AT!NVREAD?</span> — NV item read.<br>
+    <span class="rk">AT!COREDUMP?</span> — last crash dump info.<br>
+
+    <div class="rh sw">Wavecom HL (AT+W namespace)</div>
+    <span class="rk">AT+WHWV?</span> — hardware version.<br>
+    <span class="rk">AT+WSVN?</span> — software version.<br>
+    <span class="rk">AT+WIMI?</span> — IMSI (Wavecom variant).<br>
+    <span class="rk">AT+WIND=16</span> — enable network-change URC.<br>
+    <span class="rk">AT+CCED=0,1</span> — serving cell dump (LAC, CI, ARFCN, BSIC, RxLev).<br>
+    <span class="rk">AT+CCED=2,7</span> — serving cell + 6 neighbours.<br>
+
+    <div class="rh sw">⚠ Dangerous commands</div>
+    <span class="rk">AT!NVDEFAULTS</span> — wipe NV to factory defaults. Cannot be undone easily.<br>
+    <span class="rk">AT!RESET</span> — immediate soft reset.<br>
+    <span class="rk">AT!POWERDOWN</span> — power off modem subsystem.
+  </div>
+
+  <!-- ── ETSI / 3GPP REF TAB ───────────────────────────────── -->
+  <div class="ref-body" id="tab-etsi">
+    <div class="rh std">ETSI TS 27.007 — AT command set for 3GPP UEs</div>
+    The primary standard governing AT commands on all 3GPP-compliant modems: GSM, UMTS, LTE, 5G NR.
+    Everything with a <code>+</code> prefix and a GSMA/3GPP origin lives here.<br><br>
+
+    <div class="rh std">SIM / UICC access</div>
+    <span class="rk">AT+CIMI</span> — read IMSI directly from SIM.<br>
+    <span class="rk">AT+CPIN?</span> — PIN state: READY / SIM PIN / SIM PUK / etc.<br>
+    <span class="rk">AT+CRSM=cmd,fileid,p1,p2,p3[,data]</span> — restricted SIM access. cmd: 176=READ BINARY, 178=READ RECORD, 192=GET RESPONSE, 214=UPDATE BINARY, 220=UPDATE RECORD, 242=STATUS.<br>
+    <span class="rk">AT+CSIM=len,"hex"</span> — raw APDU passthrough to SIM.<br>
+    <span class="rk">AT+CGLA=ch,len,"hex"</span> — raw APDU on a logical channel (opened with AT+CCHO).<br>
+    <span class="rk">AT+CCHO="AID"</span> — open logical channel to application by AID.<br>
+    <span class="rk">AT+CCHC=ch</span> — close logical channel.<br>
+    <span class="rk">AT+CUAD?</span> — UICC app discovery (returns EF_DIR contents).<br>
+
+    <div class="rh std">Network registration</div>
+    <span class="rk">AT+CREG=2</span> then <span class="rk">AT+CREG?</span> — 2G/3G registration + LAC/CI.<br>
+    <span class="rk">AT+CEREG=2</span> then <span class="rk">AT+CEREG?</span> — LTE registration + TAC/CI.<br>
+    <span class="rk">AT+C5GREG=2</span> then <span class="rk">AT+C5GREG?</span> — 5G NR registration + TAC/CI.<br>
+    <span class="rk">AT+COPS?</span> — current operator (MCC+MNC, name, RAT).<br>
+    <span class="rk">AT+COPS=?</span> — scan all visible PLMNs (slow, takes 30–120 s).<br>
+    <span class="rk">AT+CSQ</span> — RSSI + BER. Format: +CSQ: rssi,ber — rssi 0–31 (99=unknown), −113+2×rssi dBm.<br>
+
+    <div class="rh std">PDP / data</div>
+    <span class="rk">AT+CGDCONT=1,"IP","apn"</span> — define PDP context.<br>
+    <span class="rk">AT+CGACT=1,1</span> — activate PDP context 1.<br>
+    <span class="rk">AT+CGPADDR=1</span> — query IP address for context 1.<br>
+
+    <div class="rh std">Call / audio</div>
+    <span class="rk">ATD&lt;number&gt;;</span> — voice call (semicolon keeps in cmd mode).<br>
+    <span class="rk">AT+CLCC</span> — list current calls.<br>
+    <span class="rk">AT+CHUP</span> — hang up all calls.<br>
+    <span class="rk">AT+VTD=n</span> — DTMF tone duration (tenths of second).<br>
+    <span class="rk">AT+VTS=digit</span> — send DTMF.<br>
+
+    <div class="rh std">IMS / VoLTE (TS 24.229 / vendor-specific)</div>
+    <span class="rk">AT+CIREG?</span> — IMS registration state.<br>
+    <span class="rk">AT+CIREPI=1</span> — enable IMS registration URCs.<br>
+    <span class="rk">AT%VOLTE?</span> — VoLTE status (Shannon/Exynos).<br>
+    <span class="rk">AT%VONR?</span> — VoNR (Voice over NR) status (Shannon/Exynos).
+  </div>
+
+  <!-- ── QUALCOMM / S21 REF TAB ─────────────────────────────── -->
+  <div class="ref-body" id="tab-qcom">
+    <div class="rh qcom">Samsung Galaxy S21 — Qualcomm / Shannon ATCI reference</div>
+    The S21 ships in two variants: <strong>Snapdragon 888</strong> (Qualcomm — most markets, uses AT! namespace)
+    and <strong>Exynos 2100</strong> (Samsung Shannon — uses AT% namespace). Both expose ATCI over
+    USB composite device (diag + AT port). Australian S21s are typically Exynos 2100.<br><br>
+
+    <div class="rh qcom">Enabling ATCI on S21</div>
+    Dial <span class="rk">*#0808#</span> → USB Settings → select <strong>RMNET+DM+MODEM</strong> or <strong>DM+MODEM+ADB</strong>.
+    Reconnect USB. Two new COM ports appear in Device Manager — one is AT (typically higher number),
+    one is DM/DIAG. If ports ghost (keep incrementing), uninstall all Samsung/Android composite entries from Device Manager with device disconnected, then reconnect.<br><br>
+
+    <div class="rh qcom">Qualcomm ATCI — AT! namespace</div>
+    <span class="rk">AT!ENTERCND="A710"</span> — unlock extended engineering commands. Required before AT!SELRAT, band changes, NV access. Default password; may differ on locked units.<br>
+    <span class="rk">AT!GSTATUS?</span> — the most useful single command: dumps current RAT, serving cell, RSSI, RSRP, RSRQ, SINR, TX power, all in one response.<br>
+    <span class="rk">AT!STATUS?</span> — modem operational status summary.<br>
+    <span class="rk">AT!HWID?</span> — hardware/chipset identifier.<br>
+    <span class="rk">AT!BAND?</span> — currently active band(s) and channel.<br>
+    <span class="rk">AT!GETBAND?</span> — full supported band list.<br>
+    <span class="rk">AT!RSSI?</span> — RSSI in dBm.<br>
+    <span class="rk">AT!LTEINFO?</span> — LTE serving + neighbour cell detail: PCI, EARFCN, bandwidth, RSRP, RSRQ, SINR.<br>
+    <span class="rk">AT!NRINFO?</span> — 5G NR serving cell info (SSB, ARFCN, beam, RSRP, RSRQ, SINR).<br>
+    <span class="rk">AT!NRCA?</span> — 5G carrier aggregation cell list.<br>
+    <span class="rk">AT!LTECA?</span> — LTE CA component carrier list.<br>
+    <span class="rk">AT!PCINFO?</span> — primary cell detail.<br>
+    <span class="rk">AT!SCINFO?</span> — secondary cell detail.<br>
+    <span class="rk">AT!SINRINFO?</span> — per-cell SINR breakdown.<br>
+    <span class="rk">AT!SHOWPHY?</span> — PHY layer parameters (MCS, rank, TB size).<br>
+    <span class="rk">AT!GETRAT?</span> — current active RAT.<br>
+    <span class="rk">AT!SELRAT?</span> — configured RAT preference.<br>
+    <span class="rk">AT!SELRAT=00</span> — auto (all RATs).<br>
+    <span class="rk">AT!SELRAT=06</span> — LTE only.<br>
+    <span class="rk">AT!SELRAT=71</span> — 5G NR auto.<br>
+    <span class="rk">AT!COREDUMP?</span> — last crash dump metadata.<br>
+
+    <div class="rh qcom">Shannon/Exynos — AT% namespace</div>
+    These are Samsung's own Shannon baseband extensions (Exynos 2100 variant).<br><br>
+    <span class="rk">AT%MDMCTRL?</span> — modem control / configuration flags.<br>
+    <span class="rk">AT%BANDSEL?</span> — band selection configuration.<br>
+    <span class="rk">AT%CELLMEAS?</span> — cell measurement report.<br>
+    <span class="rk">AT%NRPOLICY?</span> — 5G NR attach/handover policy.<br>
+    <span class="rk">AT%NRCA?</span> — NR carrier aggregation state.<br>
+    <span class="rk">AT%MMCINFO?</span> — MM/CMM context info.<br>
+    <span class="rk">AT%PCEL?</span> — primary cell measurement.<br>
+    <span class="rk">AT%SCEL?</span> — secondary cell measurement.<br>
+    <span class="rk">AT%SIMSWITCH?</span> — dual-SIM slot switch state.<br>
+    <span class="rk">AT%VOLTE?</span> — VoLTE enabled/registered state.<br>
+    <span class="rk">AT%VONR?</span> — VoNR (Voice over 5G NR) state.<br>
+
+    <div class="rh qcom">Dual-port bridge mode</div>
+    Port 1 = S21 ATCI modem. Port 2 = any external device (USB-serial adapter, another phone in modem mode, GSM shield, etc.).
+    Commands typed in the input row go to whichever port the <strong>P1 / P2</strong> toggle is set to.
+    Sidebar commands labelled with an orange right-border always go to Port 2.
+    The <strong>forward last S21 resp → port 2</strong> button copies the last Port 1 response as a literal AT command to Port 2 — useful for cascading queries.
+    Both ports have independent read loops with colour-coded output: blue tint = Port 1, amber tint = Port 2.
+
+    <div class="rh qcom">⚠ Dangerous commands</div>
+    <span class="rk">AT!NVDEFAULTS</span> — resets all NV items to factory. Carrier config, band locks, everything.<br>
+    <span class="rk">AT!RESET</span> — immediate baseband reset (USB disconnects).<br>
+    Always run AT!ENTERCND first, and have a known-good NV backup (QPST/QFIL) before touching NV items.
+  </div>
+
+</div><!-- end .right -->
+</div><!-- end .body -->
+<!-- ══ OLLAMA FLOATING BUTTON ═════════════════════════════════ -->
+<div class="ollama-fab" id="ollama-fab" onclick="ollamaToggle()" title="Ollama AI assistant">
+  🦙<span class="fab-badge" id="ollama-badge">!</span>
+</div>
+
+<!-- ══ OLLAMA SIDE DRAWER ════════════════════════════════════ -->
+<div class="ollama-drawer" id="ollama-drawer">
+
+  <!-- header -->
+  <div class="od-header">
+    <span class="od-dot" id="od-dot"></span>
+    <span class="od-title">🦙 OLLAMA — local AI assistant</span>
+    <button class="od-btn sm" onclick="ollamaClearChat()">clear</button>
+    <button class="od-close" onclick="ollamaToggle()">✕</button>
+  </div>
+
+  <!-- config row -->
+  <div class="od-config">
+    <label>URL</label>
+    <input class="od-inp url" id="od-url" value="http://localhost:11434" spellcheck="false" autocomplete="off"/>
+    <label>model</label>
+    <input class="od-inp model" id="od-model" value="deepseek-r1:1.5b" spellcheck="false" autocomplete="off" list="od-model-list"/>
+    <datalist id="od-model-list">
+      <option value="deepseek-r1:1.5b"/>
+      <option value="deepseek-r1:7b"/>
+      <option value="phi3.5"/>
+      <option value="phi4"/>
+      <option value="llama3.2"/>
+      <option value="llama3.2:1b"/>
+      <option value="mistral"/>
+      <option value="qwen2.5:1.5b"/>
+      <option value="nomic-embed-text"/>
+    </datalist>
+    <button class="od-btn" onclick="ollamaPing()">ping</button>
+    <button class="od-btn" onclick="ollamaListModels()">models</button>
+  </div>
+
+  <!-- context injection toggle -->
+  <div class="od-ctx">
+    <label>inject terminal context</label>
+    <input type="checkbox" class="od-ctx-toggle" id="od-ctx-toggle" checked/>
+    <label>last</label>
+    <input class="od-ctx-lines" id="od-ctx-lines" type="number" value="20" min="1" max="200"/>
+    <label>lines</label>
+    <span id="od-ctx-status" style="margin-left:auto;font-size:9px;color:var(--text3)">context: on</span>
+  </div>
+
+  <!-- chat area -->
+  <div class="od-chat" id="od-chat">
+    <div class="od-msg system">Local Ollama — no data leaves your machine.<br>
+    Ping to check connection. Ask anything about AT commands, modem responses, APDU, baseband.</div>
+  </div>
+
+  <!-- input footer -->
+  <div class="od-foot">
+    <!-- quick-inject tool buttons -->
+    <div class="od-foot-tools">
+      <button class="od-tool-btn" onclick="ollamaInjectTerminal()">⬆ inject terminal</button>
+      <button class="od-tool-btn" onclick="ollamaAskExplain()">explain last response</button>
+      <button class="od-tool-btn" onclick="ollamaAskNext()">suggest next cmd</button>
+      <button class="od-tool-btn" onclick="ollamaAskAPDU()">decode APDU</button>
+      <button class="od-tool-btn" onclick="ollamaAskBand()">explain band</button>
+      <button class="od-tool-btn" onclick="ollamaSystemPrompt()">set system prompt</button>
+    </div>
+    <div class="od-foot-row">
+      <textarea class="od-textarea" id="od-input" rows="2"
+                placeholder="ask about the modem output… Shift+Enter = newline, Enter = send"></textarea>
+      <button class="od-send" id="od-send-btn" onclick="ollamaSend()">send ⏎</button>
+    </div>
+  </div>
+
+</div><!-- end ollama-drawer -->
+
+</div><!-- end .app -->
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
+   AT TERMINAL  —  S21 / Qualcomm ATCI / Dual Serial Port
+   Part 3: core JS — state, UI helpers, send logic, builders
+   Part 4: Web Serial connect/disconnect/read loops  (next file)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── STATE ─────────────────────────────────────────────────── */
+const state = {
+  port1: null,          // S21 modem  (Web Serial port object)
+  port2: null,          // external modem
+  writer1: null,
+  writer2: null,
+  reader1: null,
+  reader2: null,
+  readLoop1: null,
+  readLoop2: null,
+  inputTarget: 1,       // which port the typed input goes to (1 or 2)
+  lastP1Response: '',   // last full response from Port 1 (for bridge fwd)
+  cmdHistory: [],
+  histIdx: -1,
+  simMode: false,       // simulation mode when no real port available
+  lineCount: 0,
+};
+
+/* ── DOM REFS ──────────────────────────────────────────────── */
+const output      = document.getElementById('output');
+const cmdInput    = document.getElementById('cmd-input');
+const p1Pill      = document.getElementById('p1-pill');
+const p2Pill      = document.getElementById('p2-pill');
+const portToggle  = document.getElementById('port-toggle-btn');
+const paramPanel  = document.getElementById('param-panel');
+const panelTitle  = document.getElementById('panel-title');
+const paramGrid   = document.getElementById('param-grid');
+const panelPortSel= document.getElementById('panel-port-sel');
+
+/* ══════════════════════════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════════════════════════ */
+const TAB_IDS = ['terminal','history','hayes','apdu','sw','etsi','qcom'];
+
+function switchTab(id, el) {
+  // hide all content panels
+  document.getElementById('tab-terminal').style.display = 'none';
+  document.getElementById('tab-history').style.display  = 'none';
+  document.querySelectorAll('.ref-body').forEach(r => r.style.display = 'none');
+
+  // deactivate all tab buttons
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+  // show target
+  if (id === 'terminal') {
+    document.getElementById('tab-terminal').style.display = 'flex';
+  } else if (id === 'history') {
+    document.getElementById('tab-history').style.display = 'block';
+    renderHistory();
+  } else {
+    const ref = document.getElementById('tab-' + id);
+    if (ref) ref.style.display = 'block';
+  }
+  if (el) el.classList.add('active');
+}
+
+// init: show terminal tab only
+(function initTabs() {
+  document.querySelectorAll('.ref-body').forEach(r => r.style.display = 'none');
+  document.getElementById('tab-history').style.display = 'none';
+  document.getElementById('tab-terminal').style.display = 'flex';
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR GROUP TOGGLE
+═══════════════════════════════════════════════════════════════ */
+function tg(hdrBtn) {
+  const body  = hdrBtn.nextElementSibling;
+  const arrow = hdrBtn.querySelector('.garrow');
+  const open  = body.classList.toggle('open');
+  if (arrow) arrow.classList.toggle('open', open);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   OUTPUT / appendLine
+═══════════════════════════════════════════════════════════════ */
+function ts() {
+  const d = new Date();
+  return d.toTimeString().slice(0,8);
+}
+
+/*
+  type values:
+    sent / sent2          → command sent on P1 / P2
+    ok / err / cme        → result codes
+    recv / recv2          → unsolicited / response from P1 / P2
+    info                  → local status message
+    imsi / sw-resp / sw-note / hayes-resp / apdu-resp / etsi-resp / qcom-resp
+*/
+function appendLine(text, type='recv', port=1) {
+  state.lineCount++;
+  const row  = document.createElement('div');
+  row.className = 'line ' + type;
+
+  const pfxMap = {
+    sent:'▶', sent2:'▶', ok:'✓', err:'✗', cme:'⚠',
+    info:'·', recv:'◀', recv2:'◀', imsi:'★',
+    'sw-resp':'◀','sw-note':'·','hayes-resp':'◀',
+    'apdu-resp':'◀','etsi-resp':'◀','qcom-resp':'◀',
+  };
+
+  const pfx  = document.createElement('span');
+  pfx.className = 'pfx';
+  pfx.textContent = pfxMap[type] || '·';
+
+  const tsEl = document.createElement('span');
+  tsEl.className = 'ts';
+  tsEl.textContent = ts();
+
+  // port badge (only on sent/recv lines)
+  let badge = '';
+  if (['sent','recv','ok','err','cme','imsi','qcom-resp'].includes(type)) {
+    const pb = document.createElement('span');
+    pb.className = 'portbadge p' + port;
+    pb.textContent = 'P' + port;
+    row.appendChild(pfx);
+    row.appendChild(tsEl);
+    row.appendChild(pb);
+  } else if (['sent2','recv2'].includes(type)) {
+    const pb = document.createElement('span');
+    pb.className = 'portbadge p2';
+    pb.textContent = 'P2';
+    row.appendChild(pfx);
+    row.appendChild(tsEl);
+    row.appendChild(pb);
+  } else {
+    row.appendChild(pfx);
+    row.appendChild(tsEl);
+  }
+
+  const txt = document.createElement('span');
+  txt.className = 'text';
+  txt.textContent = text;
+  row.appendChild(txt);
+
+  output.appendChild(row);
+  output.scrollTop = output.scrollHeight;
+
+  // accumulate P1 responses for bridge forward
+  if (['recv','ok','imsi','qcom-resp'].includes(type) && port === 1) {
+    state.lastP1Response = text;
+  }
+}
+
+function clearOutput() {
+  output.innerHTML = '';
+  state.lineCount = 0;
+  appendLine('output cleared', 'info');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COMMAND HISTORY
+═══════════════════════════════════════════════════════════════ */
+function pushHistory(cmd, port) {
+  // avoid duplicates at top
+  if (state.cmdHistory.length && state.cmdHistory[0].cmd === cmd) return;
+  state.cmdHistory.unshift({ cmd, port, time: ts() });
+  if (state.cmdHistory.length > 200) state.cmdHistory.pop();
+  state.histIdx = -1;
+}
+
+function renderHistory() {
+  const el = document.getElementById('tab-history');
+  if (!state.cmdHistory.length) {
+    el.innerHTML = '<div style="color:var(--text3);padding:20px">No commands sent yet.</div>';
+    return;
+  }
+  el.innerHTML = state.cmdHistory.map((h, i) =>
+    `<div class="hist-row" onclick="recallHistory(${i})">
+       <span class="hist-n">${i+1}</span>
+       <span class="hist-port p${h.port}">P${h.port}</span>
+       <span class="rk">${escHtml(h.cmd)}</span>
+       <span style="margin-left:auto;color:#111e2a;font-size:10px">${h.time}</span>
+     </div>`
+  ).join('');
+}
+
+function recallHistory(i) {
+  if (state.cmdHistory[i]) {
+    cmdInput.value = state.cmdHistory[i].cmd;
+    cmdInput.focus();
+    switchTab('terminal', document.querySelector('.tab'));
+    document.querySelectorAll('.tab')[0].classList.add('active');
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PORT TOGGLE (typed input routing)
+═══════════════════════════════════════════════════════════════ */
+function toggleInputPort() {
+  state.inputTarget = state.inputTarget === 1 ? 2 : 1;
+  portToggle.textContent = 'P' + state.inputTarget;
+  portToggle.className = 'port-toggle ' + (state.inputTarget === 1 ? 'use-p1' : 'use-p2');
+  appendLine(
+    'typed commands now route to Port ' + state.inputTarget +
+    (state.inputTarget === 1 ? ' (S21 modem)' : ' (external modem)'),
+    'info'
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SEND LOGIC
+═══════════════════════════════════════════════════════════════ */
+
+// classify a response line for colouring
+function classifyResponse(line, port) {
+  const u = line.toUpperCase().trim();
+  if (u === 'OK')                          return 'ok';
+  if (u === 'ERROR')                       return 'err';
+  if (u.startsWith('+CME ERROR'))          return 'cme';
+  if (u.startsWith('+CMS ERROR'))          return 'cme';
+  if (u.startsWith('+CIMI') || /^\d{14,15}$/.test(u)) return 'imsi';
+  if (u.startsWith('+CREG') || u.startsWith('+CEREG') || u.startsWith('+C5GREG')) return 'etsi-resp';
+  if (u.startsWith('AT!') || u.startsWith('+CSQ'))    return 'qcom-resp';
+  if (u.startsWith('AT%'))                             return 'qcom-resp';
+  if (u.startsWith('+CSIM') || u.startsWith('+CGLA')) return 'apdu-resp';
+  if (u.startsWith('+COPS') || u.startsWith('+CGDCONT')) return 'etsi-resp';
+  if (port === 2)                          return 'recv2';
+  return 'recv';
+}
+
+// core send — port 1 (S21)
+async function sendCmd(cmd) {
+  cmd = cmd.trim();
+  if (!cmd) return;
+  pushHistory(cmd, 1);
+  appendLine(cmd, 'sent', 1);
+
+  if (state.simMode || !state.writer1) {
+    simulateResponse(cmd, 1);
+    return;
+  }
+  try {
+    const enc = new TextEncoder();
+    await state.writer1.write(enc.encode(cmd + '\r\n'));
+  } catch(e) {
+    appendLine('Port 1 write error: ' + e.message, 'err', 1);
+  }
+}
+
+// core send — port 2 (external modem)
+async function sendCmdPort2(cmd) {
+  cmd = cmd.trim();
+  if (!cmd) return;
+  pushHistory(cmd, 2);
+  appendLine(cmd, 'sent2', 2);
+
+  if (state.simMode || !state.writer2) {
+    if (!state.port2 && !state.simMode) {
+      appendLine('Port 2 not connected — connect it first or enable sim mode', 'err', 2);
+      return;
+    }
+    simulateResponse(cmd, 2);
+    return;
+  }
+  try {
+    const enc = new TextEncoder();
+    await state.writer2.write(enc.encode(cmd + '\r\n'));
+  } catch(e) {
+    appendLine('Port 2 write error: ' + e.message, 'err', 2);
+  }
+}
+
+// send from typed input row (respects state.inputTarget)
+function sendFromInput() {
+  const cmd = cmdInput.value.trim();
+  if (!cmd) return;
+  cmdInput.value = '';
+  state.histIdx = -1;
+  if (state.inputTarget === 2) {
+    sendCmdPort2(cmd);
+  } else {
+    sendCmd(cmd);
+  }
+}
+
+// forward last P1 response as a command to P2
+function forwardLastToP2() {
+  if (!state.lastP1Response) {
+    appendLine('No P1 response to forward yet', 'info');
+    return;
+  }
+  appendLine('bridging: ' + state.lastP1Response + ' → Port 2', 'info');
+  sendCmdPort2(state.lastP1Response);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KEYBOARD — arrow history, Enter to send
+═══════════════════════════════════════════════════════════════ */
+cmdInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendFromInput();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (state.cmdHistory.length) {
+      state.histIdx = Math.min(state.histIdx + 1, state.cmdHistory.length - 1);
+      cmdInput.value = state.cmdHistory[state.histIdx].cmd;
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    state.histIdx = Math.max(state.histIdx - 1, -1);
+    cmdInput.value = state.histIdx < 0 ? '' : state.cmdHistory[state.histIdx].cmd;
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   TITLEBAR PORT PILLS — click to connect/disconnect
+═══════════════════════════════════════════════════════════════ */
+p1Pill.addEventListener('click', () => {
+  if (state.port1) disconnectPort(1);
+  else connectPort(1);
+});
+p2Pill.addEventListener('click', () => {
+  if (state.port2) disconnectPort(2);
+  else connectPort(2);
+});
+
+function setPillState(portNum, connected, label) {
+  const pill = portNum === 1 ? p1Pill : p2Pill;
+  if (connected) {
+    pill.textContent = label || (portNum === 1 ? 'S21 LIVE' : 'PORT2 LIVE');
+    pill.style.background = portNum === 1 ? 'var(--green-dim)' : 'var(--p2dim)';
+    pill.style.color       = portNum === 1 ? 'var(--green)'   : 'var(--p2color)';
+    pill.style.borderColor = portNum === 1 ? 'var(--green)'   : 'var(--p2color)';
+  } else {
+    pill.textContent = portNum === 1 ? 'S21 OFFLINE' : 'PORT2 OFF';
+    pill.style.background = '';
+    pill.style.color = '';
+    pill.style.borderColor = '';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PARAM / BUILDER PANELS
+═══════════════════════════════════════════════════════════════ */
+
+// Panel definitions — each returns { title, fields[], buildFn(vals) }
+const PANELS = {
+
+  dial: {
+    title: 'ATD — dial builder',
+    fields: [
+      { id:'num',   label:'phone number',   placeholder:'+61400000000' },
+      { id:'mode',  label:'mode (T=tone P=pulse)', placeholder:'T' },
+      { id:'voice', label:'voice call? (;)', placeholder:';' },
+    ],
+    build(v) {
+      return 'ATD' + (v.mode||'T') + (v.num||'') + (v.voice||'');
+    }
+  },
+
+  sms_text: {
+    title: 'send SMS (text mode)',
+    fields: [
+      { id:'to',   label:'destination number', placeholder:'+61400000000' },
+      { id:'msg',  label:'message text',        placeholder:'hello world' },
+    ],
+    build(v) {
+      // Two-step: first set text mode, then we print both commands
+      return 'AT+CMGF=1';  // caller sends CMGF=1 then AT+CMGS
+    },
+    multi(v) {
+      return ['AT+CMGF=1', 'AT+CMGS="' + (v.to||'') + '"'];
+    }
+  },
+
+  silent: {
+    title: 'silent SMS — class 0 PDU',
+    fields: [
+      { id:'smsc',  label:'SMSC (leave blank=default)', placeholder:'' },
+      { id:'dest',  label:'destination number',         placeholder:'+61400000000' },
+      { id:'msg',   label:'message text',               placeholder:'test' },
+    ],
+    build(v) {
+      // Build minimal class-0 PDU
+      const pdu = buildSilentPDU(v.smsc||'', v.dest||'', v.msg||'');
+      return 'AT+CMGS=' + pdu.tpduLen + '\r' + pdu.hex;
+    }
+  },
+
+  pdu: {
+    title: 'raw PDU sender (AT+CMGS)',
+    fields: [
+      { id:'len', label:'TPDU length (bytes excl SMSC)', placeholder:'e.g. 15' },
+      { id:'pdu', label:'PDU hex string',                placeholder:'0001000B...' },
+    ],
+    build(v) {
+      return 'AT+CMGS=' + (v.len||'0') + '\r' + (v.pdu||'');
+    }
+  },
+
+  ussd: {
+    title: 'AT+CUSD builder',
+    fields: [
+      { id:'n',    label:'n (1=send, 0=cancel)',    placeholder:'1' },
+      { id:'str',  label:'USSD string',             placeholder:'*100#' },
+      { id:'dcs',  label:'DCS (15=GSM7, 72=USC2)', placeholder:'15' },
+    ],
+    build(v) {
+      return 'AT+CUSD=' + (v.n||'1') + ',"' + (v.str||'') + '",' + (v.dcs||'15');
+    }
+  },
+
+  csim: {
+    title: 'AT+CSIM — raw APDU builder',
+    fields: [
+      { id:'cla',  label:'CLA (hex)',      placeholder:'00' },
+      { id:'ins',  label:'INS (hex)',      placeholder:'B0' },
+      { id:'p1',   label:'P1  (hex)',      placeholder:'00' },
+      { id:'p2',   label:'P2  (hex)',      placeholder:'00' },
+      { id:'lc',   label:'Lc data (hex)', placeholder:'' },
+      { id:'le',   label:'Le  (hex)',      placeholder:'00' },
+    ],
+    build(v) {
+      let apdu = (v.cla||'00') + (v.ins||'B0') + (v.p1||'00') + (v.p2||'00');
+      if (v.lc) apdu += v.lc;
+      if (v.le) apdu += v.le;
+      apdu = apdu.replace(/\s/g,'').toUpperCase();
+      return 'AT+CSIM=' + apdu.length + ',"' + apdu + '"';
+    }
+  },
+
+  cgla: {
+    title: 'AT+CGLA — logical channel APDU builder',
+    fields: [
+      { id:'ch',   label:'channel (1–3)', placeholder:'1' },
+      { id:'cla',  label:'CLA (hex)',     placeholder:'01' },
+      { id:'ins',  label:'INS (hex)',     placeholder:'B0' },
+      { id:'p1',   label:'P1  (hex)',     placeholder:'00' },
+      { id:'p2',   label:'P2  (hex)',     placeholder:'00' },
+      { id:'lc',   label:'Lc data (hex)',placeholder:'' },
+      { id:'le',   label:'Le  (hex)',     placeholder:'00' },
+    ],
+    build(v) {
+      let apdu = (v.cla||'01') + (v.ins||'B0') + (v.p1||'00') + (v.p2||'00');
+      if (v.lc) apdu += v.lc;
+      if (v.le) apdu += v.le;
+      apdu = apdu.replace(/\s/g,'').toUpperCase();
+      return 'AT+CGLA=' + (v.ch||'1') + ',' + apdu.length + ',"' + apdu + '"';
+    }
+  },
+
+  pdp: {
+    title: 'AT+CGDCONT — APN / PDP context builder',
+    fields: [
+      { id:'cid',   label:'CID (1–16)',    placeholder:'1' },
+      { id:'type',  label:'PDP type',      placeholder:'IP' },
+      { id:'apn',   label:'APN',           placeholder:'telstra.internet' },
+      { id:'addr',  label:'IP (blank=dyn)',placeholder:'' },
+    ],
+    build(v) {
+      return 'AT+CGDCONT=' + (v.cid||'1') + ',"' + (v.type||'IP') + '","' +
+             (v.apn||'') + '","' + (v.addr||'') + '"';
+    }
+  },
+
+  stktr: {
+    title: 'AT+STKTR — STK terminal response builder',
+    fields: [
+      { id:'len', label:'length (bytes)', placeholder:'3' },
+      { id:'hex', label:'TR hex data',   placeholder:'810301...' },
+    ],
+    build(v) {
+      const h = (v.hex||'').replace(/\s/g,'').toUpperCase();
+      return 'AT+STKTR=' + (v.len||Math.floor(h.length/2)) + ',"' + h + '"';
+    }
+  },
+
+  stkenv: {
+    title: 'AT+STKENV — STK envelope builder',
+    fields: [
+      { id:'len', label:'length (bytes)', placeholder:'3' },
+      { id:'hex', label:'envelope hex',  placeholder:'D3...' },
+    ],
+    build(v) {
+      const h = (v.hex||'').replace(/\s/g,'').toUpperCase();
+      return 'AT+STKENV=' + (v.len||Math.floor(h.length/2)) + ',"' + h + '"';
+    }
+  },
+
+  fwd_p2: {
+    title: 'forward last S21 response → Port 2',
+    fields: [],
+    build(v) { return null; },   // special-cased below
+  },
+
+  silent_entry: {
+    title: 'AT!ENTERCND — unlock diag',
+    fields: [
+      { id:'pwd', label:'password', placeholder:'A710' },
+    ],
+    build(v) {
+      return 'AT!ENTERCND="' + (v.pwd||'A710') + '"';
+    }
+  },
+
+};
+
+function showPanel(id) {
+  const def = PANELS[id];
+  if (!def) return;
+
+  // special case: forward immediately
+  if (id === 'fwd_p2') { forwardLastToP2(); return; }
+
+  panelTitle.textContent = def.title;
+  paramGrid.innerHTML = '';
+
+  def.fields.forEach(f => {
+    const wrap  = document.createElement('div');
+    wrap.className = 'param-field';
+    const lbl = document.createElement('label');
+    lbl.className = 'param-label';
+    lbl.textContent = f.label;
+    const inp = document.createElement('input');
+    inp.className   = 'param-input';
+    inp.id          = 'pf_' + f.id;
+    inp.placeholder = f.placeholder || '';
+    inp.autocomplete = 'off';
+    inp.spellcheck   = false;
+    wrap.appendChild(lbl);
+    wrap.appendChild(inp);
+    paramGrid.appendChild(wrap);
+  });
+
+  paramPanel.classList.add('open');
+  // focus first input
+  const first = paramGrid.querySelector('.param-input');
+  if (first) first.focus();
+
+  // stash which panel is open
+  paramPanel.dataset.panelId = id;
+}
+
+function closePanel() {
+  paramPanel.classList.remove('open');
+  paramPanel.dataset.panelId = '';
+}
+
+function buildFromPanel() {
+  const id  = paramPanel.dataset.panelId;
+  const def = PANELS[id];
+  if (!def) return;
+
+  const vals = {};
+  def.fields.forEach(f => {
+    const el = document.getElementById('pf_' + f.id);
+    if (el) vals[f.id] = el.value.trim();
+  });
+
+  const targetPort = parseInt(panelPortSel.value) || 1;
+
+  // special multi-cmd panels
+  if (def.multi) {
+    const cmds = def.multi(vals);
+    cmds.forEach((c,i) => setTimeout(() => {
+      targetPort === 2 ? sendCmdPort2(c) : sendCmd(c);
+    }, i * 300));
+    closePanel();
+    return;
+  }
+
+  const cmd = def.build(vals);
+  if (!cmd) { closePanel(); return; }
+
+  if (targetPort === 2) sendCmdPort2(cmd);
+  else sendCmd(cmd);
+  closePanel();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SILENT SMS PDU BUILDER (class 0)
+═══════════════════════════════════════════════════════════════ */
+function buildSilentPDU(smsc, dest, msgText) {
+  // SMSC field — 00 means use default stored on SIM
+  const smscHex = smsc ? encodePhoneNum(smsc) : '00';
+
+  // Encode destination
+  const destSemi = dest.replace('+','');
+  const destType = dest.startsWith('+') ? '91' : '81';
+  const destEncoded = semiOctetEncode(destSemi);
+  const destLen = destSemi.length.toString(16).padStart(2,'0');
+
+  // TP-OA not needed for SMS-SUBMIT
+  // TP flags: 01 = SMS-SUBMIT, no VP, class 0 TP-DCS
+  const tpFlags = '01';
+  const mr      = '00';          // message reference
+  const pid     = '00';          // protocol ID
+  const dcs     = 'F0';          // class 0, GSM7 bit 7=1
+
+  // Encode text as GSM-7 packed
+  const gsm7 = textToGSM7Packed(msgText.slice(0,160));
+  const udl  = msgText.slice(0,160).length.toString(16).padStart(2,'0');
+
+  const tpdu = tpFlags + mr + destLen + destType + destEncoded + pid + dcs + udl + gsm7;
+  const tpduLen = tpdu.length / 2;
+
+  return {
+    hex: smscHex + tpdu,
+    tpduLen,
+  };
+}
+
+function semiOctetEncode(numStr) {
+  // pad to even, swap nibbles
+  if (numStr.length % 2) numStr += 'F';
+  let out = '';
+  for (let i = 0; i < numStr.length; i += 2) {
+    out += numStr[i+1] + numStr[i];
+  }
+  return out.toUpperCase();
+}
+
+function encodePhoneNum(num) {
+  const digits = num.replace('+','');
+  const type   = num.startsWith('+') ? '91' : '81';
+  const encoded = semiOctetEncode(digits);
+  const len = Math.ceil((encoded.length / 2) + 1);
+  return len.toString(16).padStart(2,'0') + type + encoded;
+}
+
+// Minimal GSM-7 default alphabet encode → packed septets
+const GSM7_CHARS =
+  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1bÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?' +
+  '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+
+function textToGSM7Packed(text) {
+  const septets = [];
+  for (const ch of text) {
+    let idx = GSM7_CHARS.indexOf(ch);
+    if (idx < 0) idx = 32; // space fallback
+    septets.push(idx & 0x7F);
+  }
+  // pack 7-bit septets into octets
+  let bits = 0, bitCount = 0, out = '';
+  for (const s of septets) {
+    bits |= (s << bitCount);
+    bitCount += 7;
+    while (bitCount >= 8) {
+      out += (bits & 0xFF).toString(16).padStart(2,'0');
+      bits >>= 8;
+      bitCount -= 8;
+    }
+  }
+  if (bitCount > 0) out += (bits & 0xFF).toString(16).padStart(2,'0');
+  return out.toUpperCase();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SIMULATION MODE — fake responses when no port connected
+═══════════════════════════════════════════════════════════════ */
+const SIM_RESPONSES = {
+  'AT':             ['OK'],
+  'ATZ':            ['OK'],
+  'AT&F':           ['OK'],
+  'ATE0':           ['OK'],
+  'ATE1':           ['OK'],
+  'ATI':            ['Samsung Galaxy S21\nRevision: G991BXXU5DWHB', 'OK'],
+  'AT+CGMM':        ['+CGMM: SM-G991B', 'OK'],
+  'AT+CGMI':        ['+CGMI: Samsung', 'OK'],
+  'AT+CGMR':        ['+CGMR: G991BXXU5DWHB', 'OK'],
+  'AT+CGSN':        ['+CGSN: 352309110000001', 'OK'],
+  'AT+CGSN=1':      ['+CGSN: 352309110000001', 'OK'],
+  'AT+CIMI':        ['505010123456789', 'OK'],
+  'AT+CFUN?':       ['+CFUN: 1', 'OK'],
+  'AT+CSQ':         ['+CSQ: 22,0', 'OK'],
+  'AT+CREG?':       ['+CREG: 2,1,"1A3B","0012CD01",7', 'OK'],
+  'AT+CEREG?':      ['+CEREG: 2,1,"1A3B","0012CD01",7', 'OK'],
+  'AT+COPS?':       ['+COPS: 0,0,"Telstra",7', 'OK'],
+  'AT+CLAC':        ['+CLAC: (list too long for sim)', 'OK'],
+  'AT+CMEE=1':      ['OK'],
+  'AT+CMEE=2':      ['OK'],
+  'AT!GSTATUS?':    [
+    '!GSTATUS:\r\nCurrent Time: 1234  Mode: ONLINE\r\nSystem mode: LTE  PS state: Attached\r\n' +
+    'LTE band: B28  LTE bw: 20 MHz\r\nLTE Rx chan: 9410  LTE Tx chan: 27410\r\n' +
+    'LTE CA state: ACTIVE\r\nEMM state: Registered  Normal Service\r\n' +
+    'RRC state: RRC Connected\r\nIMS reg state: Full Srv\r\n' +
+    'RSSI (dBm): -71  Tx Power: 15\r\nRSRP (dBm): -91  TAC: 1A3B  (hex)\r\n' +
+    'RSRQ (dB): -9  Cell ID: 0012CD01  (hex)\r\nSINR (dB): 14.2', 'OK'
+  ],
+  'AT!STATUS?':     ['!STATUS: Online, LTE, Registered', 'OK'],
+  'AT!HWID?':       ['!HWID: SDM888 ES1.0 [0x208]', 'OK'],
+  'AT!BAND?':       ['!BAND: 28 (700MHz Aus)', 'OK'],
+  'AT!RSSI?':       ['!RSSI: -71 dBm', 'OK'],
+  'AT!LTEINFO?':    ['!LTEINFO:\r\nPCI:123 EARFCN:9410 BW:20MHz RSRP:-91 RSRQ:-9 SINR:14.2', 'OK'],
+  'AT!NRINFO?':     ['!NRINFO: NR5G-NSA ARFCN:635424 SSB:4 RSRP:-88 SINR:16.1', 'OK'],
+  'AT!SELRAT?':     ['!SELRAT: 71 (5G AUTO)', 'OK'],
+  'AT%NRPOLICY?':   ['%NRPOLICY: NSA,SA,ALLOWED', 'OK'],
+  'AT%VOLTE?':      ['%VOLTE: 1', 'OK'],
+  'AT%VONR?':       ['%VONR: 1', 'OK'],
+  'AT%PCEL?':       ['%PCEL: EARFCN=9410,PCI=123,RSRP=-91,RSRQ=-9', 'OK'],
+};
+
+function simulateResponse(cmd, port) {
+  const key = cmd.trim().toUpperCase().split('=')[0].split('?')[0];
+  const fullKey = cmd.trim().toUpperCase();
+
+  // look for full match first, then prefix
+  let responses = SIM_RESPONSES[fullKey] || SIM_RESPONSES[key];
+
+  if (!responses) {
+    // generic fallback
+    if (fullKey.startsWith('AT!') || fullKey.startsWith('AT%')) {
+      responses = ['(sim) no canned response for Qualcomm/Shannon cmd', 'OK'];
+    } else if (fullKey.startsWith('AT+CSIM') || fullKey.startsWith('AT+CGLA')) {
+      responses = ['+CSIM: 4,"9000"', 'OK'];
+    } else {
+      responses = ['OK'];
+    }
+  }
+
+  const delay = 120 + Math.random() * 80;
+  setTimeout(() => {
+    responses.forEach((r, i) => {
+      setTimeout(() => {
+        r.split('\r\n').forEach(line => {
+          if (!line.trim()) return;
+          const type = classifyResponse(line, port);
+          appendLine(line, type, port);
+        });
+      }, i * 60);
+    });
+  }, delay);
+}
+
+// ── SIM MODE TOGGLE (click on OFFLINE pill while Web Serial unavailable)
+// Full connect/disconnect logic lives in Part 4.
+// Stub so the pills work before Part 4 is loaded.
+function connectPort(n)    { _connectPort(n);    }   // resolved in Part 4
+function disconnectPort(n) { _disconnectPort(n); }
+
+// Fallback stubs (overridden by Part 4)
+function _connectPort(n) {
+  appendLine(
+    'Web Serial not yet initialised — Part 4 not appended yet. ' +
+    'Enabling simulation mode for Port ' + n + '.',
+    'info'
+  );
+  state.simMode = true;
+  setPillState(n, true, n===1 ? 'S21 SIM' : 'P2 SIM');
+}
+function _disconnectPort(n) {
+  state.simMode = false;
+  setPillState(n, false);
+  appendLine('Port ' + n + ' disconnected', 'info');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STARTUP BANNER
+═══════════════════════════════════════════════════════════════ */
+(function banner() {
+  const lines = [
+    '╔══════════════════════════════════════════════════════════╗',
+    '║  AT TERMINAL  —  Samsung Galaxy S21  (SM-G991B)          ║',
+    '║  Qualcomm ATCI (AT! / AT%) · Dual Serial Port · APDU     ║',
+    '╚══════════════════════════════════════════════════════════╝',
+    '',
+    '  Port 1  →  S21 modem (USB composite — use *#0808# first)',
+    '  Port 2  →  external modem / USB-serial / second phone',
+    '  Click the port pills top-right to connect each port.',
+    '  P1/P2 button in input row routes typed commands.',
+    '  Orange-border sidebar buttons always go to Port 2.',
+    '',
+    '  S21 Exynos 2100 (AU) → try AT% namespace (Shannon)',
+    '  S21 Snapdragon 888   → try AT! namespace (Qualcomm)',
+    '  Run AT+CLAC after connect to dump supported commands.',
+    '',
+  ];
+  lines.forEach(l => appendLine(l, 'info'));
+  appendLine('ready — connect a port or click any sidebar command', 'info');
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   OLLAMA SIDE PANEL — local AI assistant
+   Connects to http://localhost:11434 (Ollama default)
+   Uses /api/chat with streaming (NDJSON)
+═══════════════════════════════════════════════════════════════ */
+
+const ollamaState = {
+  open: false,
+  busy: false,
+  history: [],        // [{role,content}] full conversation
+  systemPrompt: `You are an expert AT command and modem assistant embedded in a hardware terminal tool.
+The user is working with a Samsung Galaxy S21 (SM-G991B, Exynos 2100 / Qualcomm Snapdragon 888).
+You help interpret AT command responses, suggest next diagnostic steps, decode APDU hex, explain 3GPP/ETSI specs,
+and assist with baseband engineering topics. Be concise and technical. When suggesting AT commands,
+format them in backticks. When decoding hex/APDU, show field-by-field breakdown.`,
+};
+
+/* DOM refs */
+const ollamaDrawer  = document.getElementById('ollama-drawer');
+const ollamaChat    = document.getElementById('od-chat');
+const ollamaInput   = document.getElementById('od-input');
+const ollamaSendBtn = document.getElementById('od-send-btn');
+const ollamaDot     = document.getElementById('od-dot');
+const ollamaFab     = document.getElementById('ollama-fab');
+const ollamaBadge   = document.getElementById('ollama-badge');
+const odCtxToggle   = document.getElementById('od-ctx-toggle');
+const odCtxStatus   = document.getElementById('od-ctx-status');
+
+odCtxToggle.addEventListener('change', () => {
+  odCtxStatus.textContent = 'context: ' + (odCtxToggle.checked ? 'on' : 'off');
+});
+
+/* ── toggle drawer open/close ── */
+function ollamaToggle() {
+  ollamaState.open = !ollamaState.open;
+  ollamaDrawer.classList.toggle('open', ollamaState.open);
+  ollamaFab.style.display = ollamaState.open ? 'none' : 'flex';
+  if (ollamaState.open) {
+    ollamaFab.classList.remove('has-reply');
+    ollamaBadge.style.display = 'none';
+    setTimeout(() => ollamaInput.focus(), 250);
+  }
+}
+
+/* ── helpers: add messages to chat ── */
+function odAddMsg(role, text, opts={}) {
+  const el = document.createElement('div');
+  el.className = 'od-msg ' + role;
+
+  const body = document.createElement('span');
+  body.textContent = text;
+  el.appendChild(body);
+
+  const tsEl = document.createElement('div');
+  tsEl.className = 'od-ts';
+  tsEl.textContent = ts();
+  el.appendChild(tsEl);
+
+  // assistant messages get an "inject to terminal" link
+  if (role === 'assistant' && !opts.noInject) {
+    const inj = document.createElement('div');
+    inj.className = 'od-inject';
+    inj.textContent = '⬇ extract & send AT commands from this reply';
+    inj.onclick = () => ollamaExtractAndSend(text);
+    el.appendChild(inj);
+  }
+
+  ollamaChat.appendChild(el);
+  ollamaChat.scrollTop = ollamaChat.scrollHeight;
+  return el;
+}
+
+function odShowTyping() {
+  const el = document.createElement('div');
+  el.className = 'od-typing';
+  el.id = 'od-typing';
+  el.textContent = ollamaState.model || 'ollama';
+  ollamaChat.appendChild(el);
+  ollamaChat.scrollTop = ollamaChat.scrollHeight;
+  return el;
+}
+
+function odRemoveTyping() {
+  const el = document.getElementById('od-typing');
+  if (el) el.remove();
+}
+
+/* ── collect terminal context ── */
+function ollamaGetContext() {
+  if (!odCtxToggle.checked) return '';
+  const lines  = parseInt(document.getElementById('od-ctx-lines').value) || 20;
+  const rows   = output.querySelectorAll('.line');
+  const slice  = Array.from(rows).slice(-lines);
+  const text   = slice.map(r => {
+    const pb  = r.querySelector('.portbadge');
+    const txt = r.querySelector('.text');
+    return (pb ? '[' + pb.textContent + '] ' : '') + (txt ? txt.textContent : '');
+  }).join('\n');
+  return text ? '\n\n--- terminal context (last ' + lines + ' lines) ---\n' + text + '\n---' : '';
+}
+
+/* ── ping Ollama ── */
+async function ollamaPing() {
+  const url = document.getElementById('od-url').value.trim();
+  odAddMsg('system', 'pinging ' + url + ' …', {noInject:true});
+  try {
+    const r = await fetch(url + '/api/tags', { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      const j = await r.json();
+      const names = (j.models||[]).map(m=>m.name).join(', ') || '(none)';
+      odAddMsg('system', '✓ Ollama reachable. Models: ' + names, {noInject:true});
+      ollamaDot.classList.add('live');
+    } else {
+      odAddMsg('error', 'Ollama responded ' + r.status, {noInject:true});
+    }
+  } catch(e) {
+    odAddMsg('error', 'Cannot reach Ollama: ' + e.message + '\nMake sure Ollama is running and OLLAMA_ORIGINS="*" is set.', {noInject:true});
+    ollamaDot.classList.remove('live');
+  }
+}
+
+/* ── list models ── */
+async function ollamaListModels() {
+  const url = document.getElementById('od-url').value.trim();
+  try {
+    const r = await fetch(url + '/api/tags', { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const list = (j.models||[]).map(m => m.name + ' (' + ((m.size||0)/1e9).toFixed(1) + 'GB)').join('\n') || '(no models found)';
+    odAddMsg('system', 'available models:\n' + list, {noInject:true});
+  } catch(e) {
+    odAddMsg('error', 'model list failed: ' + e.message, {noInject:true});
+  }
+}
+
+/* ── clear chat ── */
+function ollamaClearChat() {
+  ollamaState.history = [];
+  ollamaChat.innerHTML = '<div class="od-msg system">chat cleared</div>';
+}
+
+/* ── set / edit system prompt ── */
+function ollamaSystemPrompt() {
+  const p = prompt('Edit system prompt:', ollamaState.systemPrompt);
+  if (p !== null) {
+    ollamaState.systemPrompt = p;
+    odAddMsg('system', 'system prompt updated (' + p.length + ' chars)', {noInject:true});
+  }
+}
+
+/* ── quick tool buttons ── */
+function ollamaInjectTerminal() {
+  const ctx = ollamaGetContext();
+  if (!ctx) { odAddMsg('system', 'no terminal output yet', {noInject:true}); return; }
+  ollamaInput.value = 'Here is my current terminal output — please analyse it:\n' + ctx;
+  ollamaInput.focus();
+}
+
+function ollamaAskExplain() {
+  const last = state.lastP1Response || '(no response yet)';
+  ollamaInput.value = 'Explain this modem response: ' + last;
+  ollamaInput.focus();
+}
+
+function ollamaAskNext() {
+  const ctx = ollamaGetContext();
+  ollamaInput.value = 'Based on this terminal session, what AT commands should I run next to diagnose the issue?' + ctx;
+  ollamaInput.focus();
+}
+
+function ollamaAskAPDU() {
+  const last = state.lastP1Response || '';
+  ollamaInput.value = 'Decode this APDU response hex: ' + last;
+  ollamaInput.focus();
+}
+
+function ollamaAskBand() {
+  const last = state.lastP1Response || '';
+  ollamaInput.value = 'Explain the band/frequency information in this modem response: ' + last;
+  ollamaInput.focus();
+}
+
+/* ── extract AT commands from AI reply and send them ── */
+function ollamaExtractAndSend(text) {
+  // find anything that looks like an AT command: starts with AT (case-insensitive), backtick-wrapped or bare
+  const matches = [];
+  // backtick wrapped: `AT...`
+  const btRe = /`(AT[^\`\n]{1,80})`/gi;
+  let m;
+  while ((m = btRe.exec(text)) !== null) matches.push(m[1].trim());
+  // bare lines starting with AT
+  if (!matches.length) {
+    text.split('\n').forEach(l => {
+      const t = l.trim();
+      if (/^AT[+!%&A-Z0-9]/i.test(t)) matches.push(t);
+    });
+  }
+  if (!matches.length) {
+    odAddMsg('system', 'no AT commands found in reply — copy manually', {noInject:true});
+    return;
+  }
+  odAddMsg('system', 'sending ' + matches.length + ' command(s) from AI reply → Port ' + state.inputTarget, {noInject:true});
+  matches.forEach((cmd, i) => {
+    setTimeout(() => {
+      appendLine('← AI: ' + cmd, 'info');
+      state.inputTarget === 2 ? sendCmdPort2(cmd) : sendCmd(cmd);
+    }, i * 400);
+  });
+}
+
+/* ── main send ── */
+async function ollamaSend(prefill) {
+  if (ollamaState.busy) return;
+
+  const userText = (prefill || ollamaInput.value).trim();
+  if (!userText) return;
+
+  const url   = document.getElementById('od-url').value.trim();
+  const model = document.getElementById('od-model').value.trim() || 'deepseek-r1:1.5b';
+  const ctx   = ollamaGetContext();
+
+  ollamaInput.value = '';
+  ollamaState.busy  = true;
+  ollamaSendBtn.disabled = true;
+
+  // user message — attach context inline if enabled
+  const userContent = userText + (ctx && !prefill ? ctx : '');
+  odAddMsg('user', userText);
+
+  // build message array
+  const messages = [
+    { role: 'system', content: ollamaState.systemPrompt },
+    ...ollamaState.history,
+    { role: 'user', content: userContent },
+  ];
+
+  // push to history (without context blob to keep it clean)
+  ollamaState.history.push({ role: 'user', content: userText });
+
+  odShowTyping();
+
+  let fullReply = '';
+  let replyEl   = null;
+
+  try {
+    const resp = await fetch(url + '/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, stream: true }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error('HTTP ' + resp.status + ': ' + errText);
+    }
+
+    odRemoveTyping();
+    replyEl = odAddMsg('assistant', '');
+    const bodySpan = replyEl.querySelector('span');
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = dec.decode(value, { stream: true });
+      // Ollama streams NDJSON — one JSON object per line
+      for (const line of chunk.split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          const obj = JSON.parse(line);
+          const token = obj?.message?.content || '';
+          fullReply += token;
+          bodySpan.textContent = fullReply;
+          ollamaChat.scrollTop = ollamaChat.scrollHeight;
+          if (obj.done) break;
+        } catch(_) { /* partial line — fine */ }
+      }
+    }
+
+    ollamaState.history.push({ role: 'assistant', content: fullReply });
+
+    // keep history from growing unbounded (keep last 20 turns)
+    if (ollamaState.history.length > 40) {
+      ollamaState.history = ollamaState.history.slice(-40);
+    }
+
+    // badge if drawer is closed
+    if (!ollamaState.open) {
+      ollamaFab.classList.add('has-reply');
+      ollamaBadge.style.display = 'block';
+    }
+    ollamaDot.classList.add('live');
+
+  } catch(e) {
+    odRemoveTyping();
+    if (replyEl) replyEl.remove();
+    odAddMsg('error',
+      'Ollama error: ' + e.message +
+      '\n\nTips:\n• Is Ollama running? (ollama serve)\n' +
+      '• Set OLLAMA_ORIGINS="*" in env before starting Ollama\n' +
+      '• Check URL: ' + url,
+      {noInject:true}
+    );
+    ollamaDot.classList.remove('live');
+  }
+
+  ollamaState.busy  = false;
+  ollamaSendBtn.disabled = false;
+  ollamaInput.focus();
+}
+
+/* keyboard: Enter sends, Shift+Enter = newline */
+ollamaInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    ollamaSend();
+  }
+});
+
+/* Escape closes drawer */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && ollamaState.open) ollamaToggle();
+});
+
+</script>
