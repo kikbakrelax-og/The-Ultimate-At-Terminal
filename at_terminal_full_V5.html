@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AT Terminal — Full Research Edition</title>
+<style>
+:root{
+  --bg0:#070b0f;--bg1:#0b1017;--bg2:#0f1820;--bg3:#131e2a;
+  --border:#192433;--border2:#203040;
+  --text:#b0bec5;--text2:#6a8090;--text3:#37474f;
+  --green:#2ecc71;--green-dim:#0a2818;
+  --blue:#64b5f6;--blue-dim:#091828;
+  --amber:#ffb74d;--red:#ef5350;--purple:#ce93d8;--teal:#80cbc4;
+  --orange:#ff8a65;--lime:#aed581;
+  --sw:#1976d2;--sw-dim:#080f1e;
+  --hayes:#7c4dff;--hayes-dim:#0e0a1e;
+  --apdu:#00bcd4;--apdu-dim:#001e24;
+  --font:'Cascadia Code','Fira Code','Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--font);font-size:13px;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* TITLEBAR */
+.titlebar{background:var(--bg1);border-bottom:1px solid var(--border);padding:5px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.dots{display:flex;gap:5px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dot-r{background:#ff5f57}.dot-y{background:#ffbd2e}.dot-g{background:#28c840}
+.title-text{font-size:10px;color:var(--text3);letter-spacing:.1em}
+.quickbar{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.qpill{font-size:9px;padding:2px 8px;border-radius:999px;letter-spacing:.05em;cursor:pointer;border:0.5px solid}
+.qpill-g{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+.qpill-r{background:#2a0a0a;color:var(--red);border-color:var(--red)}
+.baud-sel{background:var(--bg2);color:var(--text2);border:0.5px solid var(--border2);border-radius:999px;font-size:9px;padding:1px 4px;font-family:var(--font)}
+.hexlbl{font-size:9px;color:var(--text3);display:flex;align-items:center;gap:3px;cursor:pointer;user-select:none}
+.hexlbl input{cursor:pointer}
+.qpill-b{background:var(--blue-dim);color:var(--blue);border-color:var(--sw)}
+.qpill-b:hover{background:#0d2540}
+.qpill-h{background:var(--hayes-dim);color:#b39ddb;border-color:#7c4dff}
+.qpill-h:hover{background:#130f2a}
+.qpill-a{background:var(--apdu-dim);color:#80deea;border-color:#00bcd4}
+.qpill-a:hover{background:#001c24}
+
+/* BODY */
+.body{display:flex;flex:1;min-height:0}
+
+/* SIDEBAR */
+.sidebar{width:225px;min-width:225px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-scroll{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.sidebar-scroll::-webkit-scrollbar{width:3px}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--border2)}
+
+.group{border-bottom:0.5px solid var(--border)}
+.group-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;cursor:pointer;background:none;border:none;width:100%;text-align:left;font-family:var(--font);font-size:10px;letter-spacing:.05em;transition:background .1s}
+.group-hdr.std{color:var(--text3)}.group-hdr.std:hover{background:var(--bg2);color:var(--text2)}
+.group-hdr.hayes{color:#4a2a8a;background:#07050f}.group-hdr.hayes:hover{background:#100820;color:#b39ddb}
+.group-hdr.sw{color:#1a3a5a;background:#05090f}.group-hdr.sw:hover{background:var(--sw-dim);color:var(--blue)}
+.group-hdr.apdu{color:#004a54;background:#030d0f}.group-hdr.apdu:hover{background:#041215;color:#80deea}
+.group-hdr.etsi{color:#2a4a1a;background:#050f03}.group-hdr.etsi:hover{background:#081505;color:var(--lime)}
+.garrow{font-size:8px;color:var(--text3);transition:transform .15s}
+.garrow.open{transform:rotate(90deg)}
+.gbody{display:none}.gbody.open{display:block}
+
+.cb{display:block;width:100%;text-align:left;background:none;border:none;font-family:var(--font);font-size:11px;padding:3px 10px 3px 18px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid transparent;transition:background .08s,color .08s}
+.cb.std{color:var(--text3)}.cb.std:hover{background:var(--bg2);color:var(--teal);border-left-color:#00695c}
+.cb.hl{color:#2a4a20}.cb.hl:hover{color:var(--lime);border-left-color:#558b2f;background:#080f04}
+.cb.hayes{color:#2a1a5a}.cb.hayes:hover{background:var(--hayes-dim);color:#b39ddb;border-left-color:#7c4dff}
+.cb.sw{color:#112030}.cb.sw:hover{background:var(--sw-dim);color:var(--blue);border-left-color:var(--sw)}
+.cb.sw-hl{color:#1a3040}.cb.sw-hl:hover{background:var(--sw-dim);color:#90caf9;border-left-color:#1976d2}
+.cb.apdu{color:#00303a}.cb.apdu:hover{background:var(--apdu-dim);color:#80deea;border-left-color:#00bcd4}
+.cb.etsi{color:#1a3010}.cb.etsi:hover{background:#060f03;color:var(--lime);border-left-color:#558b2f}
+.cb.danger{color:#3a1010}.cb.danger:hover{color:#ef9a9a;border-left-color:#c62828;background:#100505}
+.cb.builder{color:#102030}.cb.builder:hover{color:#90caf9;border-left-color:var(--sw);background:var(--sw-dim)}
+.tag{font-size:9px;color:var(--text3);margin-left:4px}
+
+/* RIGHT */
+.right{display:flex;flex-direction:column;flex:1;min-width:0}
+.tab-row{display:flex;background:var(--bg1);border-bottom:1px solid var(--border);padding:0 12px;gap:1px;flex-shrink:0;flex-wrap:wrap}
+.tab{font-size:10px;padding:5px 10px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.04em;white-space:nowrap}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--teal);border-bottom-color:#00695c}
+.tab.sw-tab.active{color:var(--blue);border-bottom-color:var(--sw)}
+.tab.hayes-tab.active{color:#b39ddb;border-bottom-color:#7c4dff}
+.tab.apdu-tab.active{color:#80deea;border-bottom-color:#00bcd4}
+
+/* TERMINAL */
+#tab-terminal{display:flex;flex-direction:column;flex:1;min-height:0}
+.output{flex:1;overflow-y:auto;padding:10px 14px;line-height:1.75;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.output::-webkit-scrollbar{width:3px}
+.output::-webkit-scrollbar-thumb{background:var(--border2)}
+.line{display:flex;gap:8px;align-items:baseline;margin-bottom:0}
+.pfx{min-width:12px;user-select:none;font-size:11px;color:var(--text3)}
+.ts{font-size:10px;min-width:58px;user-select:none;color:#111e2a}
+.text{word-break:break-all}
+.line.sent .pfx{color:var(--sw)}.line.sent .text{color:var(--teal)}
+.line.ok .text{color:var(--green)}
+.line.err .text{color:var(--red)}
+.line.info .text{color:var(--text3);font-style:italic}
+.line.recv .text{color:var(--text)}
+.line.cme .text{color:var(--amber)}
+.line.imsi .text{color:var(--purple)}
+.line.sw-resp .text{color:var(--blue)}
+.line.sw-note .text{color:#1a4060;font-style:italic}
+.line.hayes-resp .text{color:#b39ddb}
+.line.apdu-resp .text{color:#80deea}
+.line.etsi-resp .text{color:var(--lime)}
+.line.recv-p2 .text{color:var(--orange)}
+.line.sent.p2 .pfx{color:var(--orange)}.line.sent.p2 .text{color:var(--orange)}
+.target-toggle{display:flex;border:1px solid var(--border2);border-radius:4px;overflow:hidden;flex-shrink:0}
+.tgt-btn{background:none;border:none;color:var(--text3);font-size:10px;padding:4px 7px;cursor:pointer;font-family:var(--font)}
+.tgt-btn.active{background:var(--bg3);color:var(--teal)}
+
+/* PARAM PANEL */
+.param-panel{background:var(--bg1);border-top:1px solid var(--border);padding:10px 14px;display:none;flex-shrink:0}
+.param-panel.open{display:block}
+.param-title{font-size:10px;color:var(--text2);letter-spacing:.06em;margin-bottom:8px}
+.param-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px}
+.param-field{display:flex;flex-direction:column;gap:3px}
+.param-label{font-size:9px;color:var(--text3);letter-spacing:.07em}
+.param-input{background:var(--bg0);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 8px;border-radius:4px;outline:none}
+.param-input:focus{border-color:#00695c}
+.param-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.btn-build{background:var(--blue-dim);color:var(--blue);border:1px solid var(--sw);border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-build:hover{background:#0d2540}
+.btn-close{background:none;color:var(--text3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-close:hover{color:var(--text2)}
+
+/* INPUT */
+.input-row{border-top:1px solid var(--border);padding:7px 12px;display:flex;align-items:center;gap:8px;background:var(--bg1);flex-shrink:0}
+.prompt{color:var(--text3);font-size:13px;white-space:nowrap}
+.cmd-input{flex:1;background:none;border:none;outline:none;color:var(--teal);font-family:var(--font);font-size:13px;caret-color:var(--green)}
+.btn-clr{background:none;color:var(--text3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-clr:hover{color:var(--text2)}
+.btn-send{background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:4px;padding:3px 12px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.btn-send:hover{background:#0f3020}
+
+/* REF TABS */
+.ref-body{flex:1;overflow-y:auto;padding:12px 16px;line-height:1.85;color:var(--text2);font-size:11.5px;display:none;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.ref-body::-webkit-scrollbar{width:3px}
+.ref-body::-webkit-scrollbar-thumb{background:var(--border2)}
+.rh{font-size:10px;letter-spacing:.08em;border-bottom:1px solid var(--border);padding-bottom:3px;margin:14px 0 6px}
+.rh.std{color:var(--teal)}.rh.sw{color:var(--blue)}.rh.hayes{color:#b39ddb}.rh.apdu{color:#80deea}.rh.etsi{color:var(--lime)}
+.rk{color:var(--text2)}.rd{color:var(--text3)}
+
+#tab-history{flex:1;overflow-y:auto;padding:10px 14px;display:none;scrollbar-width:thin}
+.hist-row{display:flex;gap:10px;padding:4px 0;border-bottom:0.5px solid var(--border);cursor:pointer;color:var(--text3);font-size:11px}
+.hist-row:hover{color:var(--teal)}
+.hist-n{color:#111e2a;min-width:24px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="titlebar">
+  <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+  <span class="title-text">AT / HAYES / ETSI / SIERRA / APDU — full research terminal</span>
+  <div class="quickbar">
+    <span class="qpill qpill-h" onclick="sendCmd('ATZ')">ATZ reset</span>
+    <span class="qpill qpill-b" onclick="sendCmd('AT!GSTATUS?')">SW status</span>
+    <span class="qpill qpill-b" onclick="sendCmd('AT+CIMI')">IMSI</span>
+    <span class="qpill qpill-a" onclick="sendCmd('AT+CSIM=14,&quot;0070000001&quot;')">open channel</span>
+    <span class="qpill qpill-b" onclick="sendCmd('AT+CFUN?')">CFUN</span>
+    <select class="baud-sel" id="baud1" title="Port 1 baud">
+      <option>115200</option><option>57600</option><option>38400</option><option>19200</option><option>9600</option>
+    </select>
+    <span class="qpill qpill-r" id="conn-pill-1" onclick="toggleConnect(1)">P1: connect</span>
+    <label class="hexlbl"><input type="checkbox" id="hex1" onchange="ports[1].hex=this.checked"/>hex</label>
+    <select class="baud-sel" id="baud2" title="Port 2 baud">
+      <option>115200</option><option>57600</option><option>38400</option><option>19200</option><option>9600</option>
+    </select>
+    <span class="qpill qpill-r" id="conn-pill-2" onclick="toggleConnect(2)">P2: connect</span>
+    <label class="hexlbl"><input type="checkbox" id="hex2" onchange="ports[2].hex=this.checked"/>hex</label>
+  </div>
+</div>
+
+<div class="body">
+<div class="sidebar"><div class="sidebar-scroll">
+
+  <!-- HAYES -->
+  <div class="group" style="border-top:2px solid #1a0a40">
+    <button class="group-hdr hayes" onclick="tg(this)"><span>&#9670; hayes — original AT set</span><span class="garrow open">&#9658;</span></button>
+    <div class="gbody open">
+      <button class="cb hayes" onclick="sendCmd('AT')">AT <span class="tag">attention / ping</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATZ')">ATZ <span class="tag">reset to profile</span></button>
+      <button class="cb hayes" onclick="sendCmd('AT&F')">AT&amp;F <span class="tag">factory defaults</span></button>
+      <button class="cb hayes" onclick="sendCmd('AT&W')">AT&amp;W <span class="tag">save profile</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATE0')">ATE0 <span class="tag">echo off</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATE1')">ATE1 <span class="tag">echo on</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATV0')">ATV0 <span class="tag">numeric result</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATV1')">ATV1 <span class="tag">verbose result</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATQ0')">ATQ0 <span class="tag">result codes on</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATQ1')">ATQ1 <span class="tag">result codes off</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATX4')">ATX4 <span class="tag">extended results</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATO')">ATO <span class="tag">return online</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATH')">ATH <span class="tag">hangup / on-hook</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATA')">ATA <span class="tag">answer call</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATL1')">ATL1 <span class="tag">speaker vol low</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATM1')">ATM1 <span class="tag">speaker on til connect</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATP')">ATP <span class="tag">pulse dialling</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATT')">ATT <span class="tag">tone dialling</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATI')">ATI <span class="tag">product ID</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATI0')">ATI0 <span class="tag">product code</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATI3')">ATI3 <span class="tag">firmware revision</span></button>
+      <button class="cb hayes" onclick="sendCmd('AT&C1')">AT&amp;C1 <span class="tag">DCD follows carrier</span></button>
+      <button class="cb hayes" onclick="sendCmd('AT&D2')">AT&amp;D2 <span class="tag">DTR hangup</span></button>
+      <button class="cb hayes" onclick="sendCmd('AT&K3')">AT&amp;K3 <span class="tag">RTS/CTS flow ctrl</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATS0=0')">ATS0=0 <span class="tag">auto-answer off</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATS0=1')">ATS0=1 <span class="tag">auto-answer 1 ring</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATS3?')">ATS3? <span class="tag">CR char value</span></button>
+      <button class="cb hayes" onclick="sendCmd('ATS7=60')">ATS7=60 <span class="tag">carrier wait 60s</span></button>
+      <button class="cb hayes" onclick="sendCmd('AT+++')">AT+++ <span class="tag">escape to cmd mode</span></button>
+      <button class="cb hayes builder" onclick="showPanel('dial')">ATD builder <span class="tag">dial</span></button>
+    </div>
+  </div>
+
+  <!-- STANDARD AT -->
+  <div class="group" style="border-top:1px solid #1a2535">
+    <button class="group-hdr std" onclick="tg(this)"><span>modem control</span><span class="garrow open">&#9658;</span></button>
+    <div class="gbody open">
+      <button class="cb std" onclick="sendCmd('AT+CGMM')">AT+CGMM <span class="tag">model</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CGMI')">AT+CGMI <span class="tag">manufacturer</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CGMR')">AT+CGMR <span class="tag">revision</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CGSN')">AT+CGSN <span class="tag">IMEI</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CMEE=1')">AT+CMEE=1 <span class="tag">verbose err</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CMEE=2')">AT+CMEE=2 <span class="tag">very verbose</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CLAC')">AT+CLAC <span class="tag">list all cmds</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CFUN?')">AT+CFUN? <span class="tag">functionality</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CFUN=1')">AT+CFUN=1 <span class="tag">full power</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CFUN=0')">AT+CFUN=0 <span class="tag">minimum / RF off</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CFUN=4')">AT+CFUN=4 <span class="tag">disable TX/RX</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CFUN=6')">AT+CFUN=6 <span class="tag">reset modem</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CPWROFF')">AT+CPWROFF <span class="tag">power off</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CCLK?')">AT+CCLK? <span class="tag">clock</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CTZR=1')">AT+CTZR=1 <span class="tag">timezone URC</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CTZU=1')">AT+CTZU=1 <span class="tag">auto tz update</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr std" onclick="tg(this)"><span>network / carrier</span><span class="garrow open">&#9658;</span></button>
+    <div class="gbody open">
+      <button class="cb hl" onclick="sendCmd('AT+CIMI')">AT+CIMI <span class="tag">IMSI</span></button>
+      <button class="cb hl" onclick="sendCmd('AT+COPS?')">AT+COPS? <span class="tag">operator</span></button>
+      <button class="cb std" onclick="sendCmd('AT+COPS=?')">AT+COPS=? <span class="tag">scan nets</span></button>
+      <button class="cb hl" onclick="sendCmd('AT+CREG?')">AT+CREG? <span class="tag">reg+LAC/CI</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CREG=2')">AT+CREG=2 <span class="tag">enable loc URC</span></button>
+      <button class="cb hl" onclick="sendCmd('AT+CEREG?')">AT+CEREG? <span class="tag">LTE reg</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CEREG=2')">AT+CEREG=2 <span class="tag">LTE loc URC</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CGREG=2')">AT+CGREG=2 <span class="tag">GPRS loc URC</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CSQ')">AT+CSQ <span class="tag">signal</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CPSI?')">AT+CPSI? <span class="tag">cell info</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CNUM')">AT+CNUM <span class="tag">MSISDN</span></button>
+      <button class="cb std" onclick="sendCmd('AT+COPN')">AT+COPN <span class="tag">operator names</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CPOL?')">AT+CPOL? <span class="tag">pref PLMN list</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CIND?')">AT+CIND? <span class="tag">indicators</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CMER=3,0,0,1')">AT+CMER <span class="tag">event reporting</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CNMI=2,1,0,0,0')">AT+CNMI <span class="tag">new msg ind</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr std" onclick="tg(this)"><span>SMS</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb std" onclick="sendCmd('AT+CMGF=1')">AT+CMGF=1 <span class="tag">text mode</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CMGF=0')">AT+CMGF=0 <span class="tag">PDU mode</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CMGL=&quot;ALL&quot;')">AT+CMGL="ALL"</button>
+      <button class="cb std" onclick="sendCmd('AT+CPMS?')">AT+CPMS? <span class="tag">storage</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CSCA?')">AT+CSCA? <span class="tag">SMSC</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CSDH=1')">AT+CSDH=1 <span class="tag">show hdr detail</span></button>
+      <button class="cb builder" onclick="showPanel('silent')">silent SMS <span class="tag">class 0</span></button>
+      <button class="cb builder" onclick="showPanel('pdu')">PDU builder <span class="tag">raw</span></button>
+      <button class="cb builder" onclick="showPanel('sms_text')">send SMS text</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr std" onclick="tg(this)"><span>USSD</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb builder" onclick="showPanel('ussd')">AT+CUSD builder</button>
+      <button class="cb std" onclick="sendCmd('AT+CUSD=0')">AT+CUSD=0 <span class="tag">cancel</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*#100#&quot;,15')">*#100# <span class="tag">balance</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*#06#&quot;,15')">*#06# <span class="tag">IMEI</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*135#&quot;,15')">*135# <span class="tag">own number</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;*#21#&quot;,15')">*#21# <span class="tag">call fwd qry</span></button>
+      <button class="cb std" onclick="sendCmd('AT+CUSD=1,&quot;##21#&quot;,15')">##21# <span class="tag">cancel fwd</span></button>
+    </div>
+  </div>
+
+  <!-- ETSI / 3GPP EXTENDED -->
+  <div class="group" style="border-top:1px solid #102010">
+    <button class="group-hdr etsi" onclick="tg(this)"><span>&#9670; ETSI — SIM access (TS 27.007)</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb etsi hl" onclick="sendCmd('AT+CIMI')">AT+CIMI <span class="tag">IMSI</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+ICCID')">AT+ICCID <span class="tag">ICCID</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CPIN?')">AT+CPIN? <span class="tag">PIN status</span></button>
+      <button class="cb etsi hl" onclick="sendCmd('AT+CRSM=176,28423,0,0,10')">AT+CRSM EF_IMSI</button>
+      <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28618,0,0,11')">AT+CRSM EF_SPN</button>
+      <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28486,0,0,16')">AT+CRSM EF_PLMN</button>
+      <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28589,0,0,2')">AT+CRSM EF_ACC</button>
+      <button class="cb etsi" onclick="sendCmd('AT+CRSM=176,28438,0,0,4')">AT+CRSM EF_LOCI</button>
+      <button class="cb etsi hl" onclick="sendCmd('AT+CUAD?')">AT+CUAD? <span class="tag">app discovery</span></button>
+      <button class="cb etsi hl" onclick="sendCmd('AT+CCHO=&quot;A0000000871002FF49FF&quot;')">AT+CCHO USIM AID</button>
+      <button class="cb etsi" onclick="sendCmd('AT+CCHC=1')">AT+CCHC=1 <span class="tag">close channel</span></button>
+      <button class="cb etsi builder" onclick="showPanel('cgla')">AT+CGLA builder <span class="tag">logical ch APDU</span></button>
+      <button class="cb etsi builder" onclick="showPanel('csim')">AT+CSIM builder <span class="tag">raw SIM APDU</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CLCK=&quot;SC&quot;,2')">AT+CLCK SC,2 <span class="tag">SIM lock qry</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CPOL?')">AT+CPOL? <span class="tag">pref PLMN</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CPBS?')">AT+CPBS? <span class="tag">pb storage</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr etsi" onclick="tg(this)"><span>&#9670; ETSI — data / PDP</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb etsi" onclick="sendCmd('AT+CGDCONT?')">AT+CGDCONT? <span class="tag">PDP contexts</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CGACT?')">AT+CGACT? <span class="tag">active PDP</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CGPADDR')">AT+CGPADDR <span class="tag">IP addr</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CGCONTRDP')">AT+CGCONTRDP <span class="tag">dyn params</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CGEREP=1,0')">AT+CGEREP=1,0 <span class="tag">GPRS events</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CGPIAF=1,0,0,0')">AT+CGPIAF <span class="tag">IP format</span></button>
+      <button class="cb etsi builder" onclick="showPanel('pdp')">set APN builder</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr etsi" onclick="tg(this)"><span>&#9670; ETSI — STK / OTA</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb etsi hl" onclick="sendCmd('AT+STKPRO?')">AT+STKPRO? <span class="tag">proactive cmd</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+STKCNF=1')">AT+STKCNF=1 <span class="tag">confirm enable</span></button>
+      <button class="cb etsi builder" onclick="showPanel('stktr')">AT+STKTR builder <span class="tag">terminal resp</span></button>
+      <button class="cb etsi builder" onclick="showPanel('stkenv')">AT+STKENV builder <span class="tag">envelope cmd</span></button>
+      <button class="cb etsi" onclick="sendCmd('AT+CMGF=0')">AT+CMGF=0 <span class="tag">PDU for OTA SMS</span></button>
+    </div>
+  </div>
+
+  <!-- APDU -->
+  <div class="group" style="border-top:1px solid #001820">
+    <button class="group-hdr apdu" onclick="tg(this)"><span>&#9670; APDU — ISO 7816-4 commands</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb apdu hl" onclick="sendCmd('AT+CSIM=14,&quot;00A4040000&quot;')">SELECT MF <span class="tag">3F00</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;00A4000002&quot;')">SELECT by ID</button>
+      <button class="cb apdu hl" onclick="sendCmd('AT+CSIM=10,&quot;00C0000010&quot;')">GET RESPONSE <span class="tag">16 bytes</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;00B0000010&quot;')">READ BINARY</button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;00B2010410&quot;')">READ RECORD <span class="tag">rec 1</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;0020000104&quot;')">VERIFY PIN <span class="tag">shell</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;00F2000010&quot;')">GET STATUS</button>
+      <button class="cb apdu hl" onclick="sendCmd('AT+CSIM=14,&quot;0070000001&quot;')">MANAGE CHANNEL <span class="tag">open</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;00708000&quot;')">MANAGE CHANNEL <span class="tag">close</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;80CA9F7F00&quot;')">GET DATA CPLC</button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;80CA004F00&quot;')">GET DATA IIN</button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;80F28000&quot;')">GP GET STATUS <span class="tag">ISD</span></button>
+      <button class="cb apdu builder" onclick="showPanel('apdu_raw')">raw APDU builder</button>
+      <button class="cb apdu builder" onclick="showPanel('select_aid')">SELECT AID builder</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr apdu" onclick="tg(this)"><span>&#9670; APDU — GlobalPlatform</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;80CA9F1700&quot;')">GET DATA — card recognition</button>
+      <button class="cb apdu hl" onclick="sendCmd('AT+CSIM=10,&quot;80F28000&quot;')">GET STATUS — ISD</button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;80F24000&quot;')">GET STATUS — apps</button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=10,&quot;80F28010&quot;')">GET STATUS — exec modules</button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;84E40080&quot;')">GP DELETE <span class="tag">skeleton</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;84E60200&quot;')">GP INSTALL <span class="tag">skeleton</span></button>
+      <button class="cb apdu" onclick="sendCmd('AT+CSIM=14,&quot;84E80000&quot;')">GP LOAD <span class="tag">skeleton</span></button>
+    </div>
+  </div>
+
+  <!-- SIERRA MODERN -->
+  <div class="group" style="border-top:2px solid #0a1830">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra — identity / fw</span><span class="garrow open">&#9658;</span></button>
+    <div class="gbody open">
+      <button class="cb sw" onclick="sendCmd('AT!GVER?')">AT!GVER? <span class="tag">fw version</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!PRIID?')">AT!PRIID? <span class="tag">PRI/carrier</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!ENTERCND=&quot;A710&quot;')">AT!ENTERCND <span class="tag">unlock cmds</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!IMAGE?')">AT!IMAGE? <span class="tag">fw image slots</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!UDPID?')">AT!UDPID? <span class="tag">USB PID</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!USBCOMP?')">AT!USBCOMP? <span class="tag">USB composition</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!USBVID?')">AT!USBVID? <span class="tag">USB VID</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!BOOTHOLD?')">AT!BOOTHOLD? <span class="tag">boot hold</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!IMPREF?')">AT!IMPREF? <span class="tag">IMS preference</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!OPMODE?')">AT!OPMODE? <span class="tag">operating mode</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!HWID?')">AT!HWID? <span class="tag">hardware ID</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra — RF / signal</span><span class="garrow open">&#9658;</span></button>
+    <div class="gbody open">
+      <button class="cb sw-hl" onclick="sendCmd('AT!GSTATUS?')">AT!GSTATUS? <span class="tag">full status</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!RSSI?')">AT!RSSI? <span class="tag">RSSI detail</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!GETRAT?')">AT!GETRAT? <span class="tag">current RAT</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!GETBAND?')">AT!GETBAND? <span class="tag">current band</span></button>
+      <button class="cb sw-hl" onclick="sendCmd('AT!LTEINFO?')">AT!LTEINFO? <span class="tag">LTE PHY</span></button>
+      <button class="cb sw-hl" onclick="sendCmd('AT!LTECA?')">AT!LTECA? <span class="tag">carrier agg</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!NWINFO?')">AT!NWINFO? <span class="tag">network info</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!ANTSEL?')">AT!ANTSEL? <span class="tag">antenna select</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!DIVERSITY?')">AT!DIVERSITY? <span class="tag">RX diversity</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!TXDIVERSITY?')">AT!TXDIVERSITY? <span class="tag">TX diversity</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!LTEDISABLED?')">AT!LTEDISABLED? <span class="tag">LTE disable state</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SCACT?')">AT!SCACT? <span class="tag">SCell active</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra — band / RAT lock</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb sw" onclick="sendCmd('AT!BAND?')">AT!BAND? <span class="tag">band pref</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SELRAT?')">AT!SELRAT? <span class="tag">RAT select</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!BAND=00')">AT!BAND=00 <span class="tag">auto all</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SELRAT=00')">AT!SELRAT=00 <span class="tag">auto RAT</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SELRAT=03')">AT!SELRAT=03 <span class="tag">LTE only</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SELRAT=02')">AT!SELRAT=02 <span class="tag">UMTS only</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SELRAT=06')">AT!SELRAT=06 <span class="tag">LTE+UMTS</span></button>
+      <button class="cb builder" onclick="showPanel('swband')">AT!BAND= builder</button>
+      <button class="cb builder" onclick="showPanel('swrat')">AT!SELRAT= builder</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra — data / power</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb sw" onclick="sendCmd('AT!DASCONN?')">AT!DASCONN? <span class="tag">data session</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!SCPADDR?')">AT!SCPADDR? <span class="tag">IP address</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!PCOPTS?')">AT!PCOPTS? <span class="tag">power opts</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!PCTEMP?')">AT!PCTEMP? <span class="tag">temperature</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!PCVOLTAGE?')">AT!PCVOLTAGE? <span class="tag">voltage</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!ROAMCONTROL?')">AT!ROAMCONTROL? <span class="tag">roam control</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!DFTSERV?')">AT!DFTSERV? <span class="tag">default service</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!CUSTOM?')">AT!CUSTOM? <span class="tag">custom NV list</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!MSMSRATE?')">AT!MSMSRATE? <span class="tag">SMS rate</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra — diag / reset</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb sw" onclick="sendCmd('AT!NVBACKUP')">AT!NVBACKUP <span class="tag">backup NV</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!NVRESTORE')">AT!NVRESTORE <span class="tag">restore NV</span></button>
+      <button class="cb sw danger" onclick="sendCmd('AT!NVDEFAULTS')">AT!NVDEFAULTS <span class="tag">factory NV</span></button>
+      <button class="cb sw danger" onclick="sendCmd('AT!RESET')">AT!RESET <span class="tag">soft reset</span></button>
+      <button class="cb sw danger" onclick="sendCmd('AT!POWERDOWN')">AT!POWERDOWN <span class="tag">power off</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!COREDUMP?')">AT!COREDUMP? <span class="tag">crash dump</span></button>
+      <button class="cb sw" onclick="sendCmd('AT!RMARESET=1')">AT!RMARESET=1 <span class="tag">RMA reset</span></button>
+    </div>
+  </div>
+
+  <!-- SIERRA HL LEGACY -->
+  <div class="group" style="border-top:1px solid #0a1828">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra HL — identity (Wavecom)</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb sw" onclick="sendCmd('AT+WHWV?')">AT+WHWV? <span class="tag">hw version</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WSVN?')">AT+WSVN? <span class="tag">sw version</span></button>
+      <button class="cb sw hl" onclick="sendCmd('AT+WIMI?')">AT+WIMI? <span class="tag">IMSI (HL)</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WOPEN?')">AT+WOPEN? <span class="tag">Open-AT</span></button>
+      <button class="cb sw danger" onclick="sendCmd('AT+WDWL')">AT+WDWL <span class="tag">DWL flash mode</span></button>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="group-hdr sw" onclick="tg(this)"><span>&#9670; sierra HL — events / cell</span><span class="garrow">&#9658;</span></button>
+    <div class="gbody">
+      <button class="cb sw" onclick="sendCmd('AT+WIND?')">AT+WIND? <span class="tag">event mask</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WIND=16')">AT+WIND=16 <span class="tag">net change</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WIND=2050')">AT+WIND=2050 <span class="tag">GPRS+reg</span></button>
+      <button class="cb sw hl" onclick="sendCmd('AT+CCED=0,1')">AT+CCED=0,1 <span class="tag">serving cell</span></button>
+      <button class="cb sw hl" onclick="sendCmd('AT+CCED=2,7')">AT+CCED=2,7 <span class="tag">+6 neighbours</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WMBS?')">AT+WMBS? <span class="tag">band select</span></button>
+      <button class="cb builder" onclick="showPanel('wmbs')">AT+WMBS= builder</button>
+      <button class="cb sw" onclick="sendCmd('AT+WLCK?')">AT+WLCK? <span class="tag">SIM lock</span></button>
+      <button class="cb builder" onclick="showPanel('wlck')">AT+WLCK= builder</button>
+      <button class="cb sw" onclick="sendCmd('AT+WRIM?')">AT+WRIM? <span class="tag">ring ind</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WMSC?')">AT+WMSC? <span class="tag">missed call</span></button>
+      <button class="cb sw" onclick="sendCmd('AT+WCCS?')">AT+WCCS? <span class="tag">char set</span></button>
+    </div>
+  </div>
+
+</div></div><!-- end sidebar -->
+
+<div class="right">
+  <div class="tab-row">
+    <div class="tab active" onclick="switchTab('terminal',this)">terminal</div>
+    <div class="tab" onclick="switchTab('history',this)">history</div>
+    <div class="tab hayes-tab" onclick="switchTab('hayes',this)">hayes ref</div>
+    <div class="tab apdu-tab" onclick="switchTab('apdu',this)">APDU / 7816-4</div>
+    <div class="tab sw-tab" onclick="switchTab('sw',this)">sierra ref</div>
+    <div class="tab" onclick="switchTab('etsi',this)">ETSI / 3GPP</div>
+  </div>
+
+  <div id="tab-terminal">
+    <div class="output" id="output"></div>
+    <div class="param-panel" id="param-panel">
+      <div class="param-title" id="panel-title"></div>
+      <div class="param-grid" id="param-grid"></div>
+      <div class="param-btns">
+        <button class="btn-build" onclick="buildFromPanel()">build &amp; send</button>
+        <button class="btn-close" onclick="closePanel()">close</button>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="target-toggle">
+        <button class="tgt-btn active" id="tgt1" onclick="setTarget(1)">P1</button>
+        <button class="tgt-btn" id="tgt2" onclick="setTarget(2)">P2</button>
+      </div>
+      <span class="prompt">AT&gt;</span>
+      <input class="cmd-input" id="cmd-input" placeholder="type AT, AT!, AT+CSIM, or raw APDU command..." autocomplete="off" spellcheck="false"/>
+      <button class="btn-clr" onclick="clearOutput()">clear</button>
+      <button class="btn-send" onclick="sendFromInput()">send &#x23CE;</button>
+    </div>
+  </div>
+
+  <div class="ref-body" id="tab-history"></div>
+
+  <div class="ref-body" id="tab-hayes">
+    <div class="rh hayes">hayes AT command set — origin (1977–1981, Hayes Microcomputer Products)</div>
+    The Hayes Smartmodem command set is the foundation everything else is built on. All subsequent AT command extensions — GSM, CDMA, LTE — inherit the Hayes syntax and session model.<br><br>
+    <span class="rk">AT</span> — attention prefix. Every command starts here. The modem checks for ATdt in the receive buffer at all times.<br>
+    <span class="rk">ATZ</span> — reset modem to stored user profile (NVRAM). Does not restore factory defaults.<br>
+    <span class="rk">AT&amp;F</span> — restore factory defaults. Does not save — combine with AT&amp;W to persist.<br>
+    <span class="rk">AT&amp;W</span> — write current settings to active user profile in NVRAM.<br>
+    <span class="rk">ATE0/ATE1</span> — echo disable/enable. E0 stops modem echoing your commands back, useful for scripting.<br>
+    <span class="rk">ATV0/ATV1</span> — result code format. V0=numeric (0=OK,1=CONNECT,2=RING,3=NO CARRIER,4=ERROR), V1=verbose text.<br>
+    <span class="rk">ATQ0/ATQ1</span> — result code suppression. Q1 silences all result codes entirely.<br>
+    <span class="rk">ATX0–X4</span> — result code set selection. X4 enables full extended result codes including connect speed.<br>
+    <span class="rk">ATH0/ATH1</span> — hook control. H0=on-hook (hangup), H1=off-hook (pick up line).<br>
+    <span class="rk">ATA</span> — answer incoming call immediately.<br>
+    <span class="rk">ATO</span> — return to online data mode from command mode (opposite of +++)<br>
+    <span class="rk">AT+++</span> — escape sequence. Pause-plus-plus-plus-pause returns to command mode during a call without hanging up. Guard time default 1 second each side.<br>
+    <span class="rk">ATD</span> — dial. ATDTnumber (tone), ATDPnumber (pulse), ATDL (redial last), ATD; (dial without going online).<br>
+    <span class="rk">ATL0–L3</span> — speaker volume: 0=off, 1=low, 2=medium, 3=high.<br>
+    <span class="rk">ATM0–M2</span> — speaker mode: 0=always off, 1=on until carrier, 2=always on.<br>
+    <span class="rk">ATP / ATT</span> — pulse / tone dialling selection.<br>
+    <span class="rk">AT&amp;C0/C1</span> — DCD (carrier detect) pin behaviour. C1=follows actual carrier state.<br>
+    <span class="rk">AT&amp;D0/D2</span> — DTR behaviour. D2=hangup and return to command mode when DTR drops.<br>
+    <span class="rk">AT&amp;K0/K3</span> — flow control. K0=none, K3=RTS/CTS hardware flow control.<br>
+
+    <div class="rh hayes">S-registers — the Hayes parameter store</div>
+    S-registers are the original persistent parameter storage — the NV RAM concept of 1981.<br><br>
+    <span class="rk">ATS0=n</span> — auto-answer after n rings. 0=disable.<br>
+    <span class="rk">ATS1?</span> — ring counter (read-only, resets after timeout).<br>
+    <span class="rk">ATS2=43</span> — escape character (default 43 = ASCII '+').<br>
+    <span class="rk">ATS3=13</span> — command line terminator (default 13 = CR).<br>
+    <span class="rk">ATS4=10</span> — response format character (default 10 = LF).<br>
+    <span class="rk">ATS5=8</span> — command line edit (backspace) character.<br>
+    <span class="rk">ATS6=2</span> — wait for dial tone (seconds).<br>
+    <span class="rk">ATS7=60</span> — wait for carrier after dial (seconds). Connection timeout.<br>
+    <span class="rk">ATS10=14</span> — carrier loss disconnect delay (tenths of seconds).<br>
+    <span class="rk">ATS12=50</span> — escape guard time (fiftieths of a second each side of +++). Critical for timing attacks on the escape sequence.<br>
+
+    <div class="rh hayes">lineage into GSM — what changed</div>
+    GSM 07.07 (1994) took Hayes as the base and added the + namespace for extended commands. The original Hayes set remained intact for backwards compatibility — the same reason every GSM modem still responds to ATZ and AT&amp;F today. This is the first layer of the architectural debt you're researching. The Hayes session model (command mode vs online data mode, DTR signalling, S-registers as NV) was never redesigned for cellular — it was shimmed on top.
+  </div>
+
+  <div class="ref-body" id="tab-apdu">
+    <div class="rh apdu">ISO/IEC 7816-4 — interindustry APDU command set (1995)</div>
+    The foundational spec. Every smart card, SIM, USIM, JavaCard, EMV card, and CAC card implements this. Every newer layer (GlobalPlatform, EMV, NFC/ISO 14443, ETSI TS 102.221) stacks on top.<br><br>
+
+    <div class="rh apdu">APDU structure</div>
+    Command APDU: CLA INS P1 P2 [Lc] [Data] [Le]<br>
+    Response APDU: [Response Data] SW1 SW2<br><br>
+    <span class="rk">CLA</span> — class byte: 00=ISO standard, 80/84=proprietary (GlobalPlatform), A0=GSM legacy, 0X=logical channel X<br>
+    <span class="rk">INS</span> — instruction byte (the command)<br>
+    <span class="rk">P1 P2</span> — parameters / qualifiers<br>
+    <span class="rk">Lc</span> — length of command data<br>
+    <span class="rk">Le</span> — expected response length (00=max)<br>
+    <span class="rk">SW1 SW2</span> — status words: 90 00=OK, 61 XX=response available, 6C XX=wrong Le, 69 82=security not satisfied, 6A 82=file not found<br>
+
+    <div class="rh apdu">core commands — CLA=00</div>
+    <span class="rk">00 A4 04 00 Lc AID</span> — SELECT by AID (application ID). Used to select USIM, ISIM, or JavaCard applets.<br>
+    <span class="rk">00 A4 00 00 02 FID</span> — SELECT by file ID (e.g. 3F00=MF, 7F10=DF_TELECOM, 7F20=DF_GSM, 7FFF=ADF_USIM)<br>
+    <span class="rk">00 B0 P1 P2 Le</span> — READ BINARY. P1P2=offset into transparent EF.<br>
+    <span class="rk">00 D6 P1 P2 Lc Data</span> — UPDATE BINARY. Write to transparent EF.<br>
+    <span class="rk">00 B2 Rec P2 Le</span> — READ RECORD. P2: 02=next, 03=previous, 04=absolute.<br>
+    <span class="rk">00 DC Rec P2 Lc Data</span> — UPDATE RECORD.<br>
+    <span class="rk">00 C0 00 00 Le</span> — GET RESPONSE. Retrieve pending response data after 61 XX status.<br>
+    <span class="rk">00 20 00 01 Lc PIN</span> — VERIFY (PIN). PIN padded with FF to 8 bytes.<br>
+    <span class="rk">00 24 00 01 Lc Data</span> — CHANGE REFERENCE DATA (change PIN).<br>
+    <span class="rk">00 2C 00 01 Lc PUK+PIN</span> — RESET RETRY COUNTER (PUK unblock).<br>
+    <span class="rk">00 70 00 00 01</span> — MANAGE CHANNEL open. Returns channel number.<br>
+    <span class="rk">00 70 80 CN</span> — MANAGE CHANNEL close channel CN.<br>
+    <span class="rk">00 88 00 00 Lc RAND</span> — INTERNAL AUTHENTICATE. Used in GSM/UMTS AKA.<br>
+    <span class="rk">00 CA 00 6F 00</span> — GET DATA tag 6F (card capabilities).<br>
+    <span class="rk">00 CA 9F 7F 00</span> — GET DATA CPLC (Card Production Life Cycle — manufacture/personalisation dates, IC serial).<br>
+    <span class="rk">00 F2 00 0C 00</span> — GET STATUS (current selected file info).<br>
+
+    <div class="rh apdu">GlobalPlatform commands — CLA=80/84</div>
+    <span class="rk">80 CA 9F 7F 00</span> — GET DATA CPLC via GP namespace.<br>
+    <span class="rk">80 F2 80 00 02 4F00</span> — GET STATUS — Issuer Security Domain.<br>
+    <span class="rk">80 F2 40 00 02 4F00</span> — GET STATUS — all applications.<br>
+    <span class="rk">80 F2 20 00 02 4F00</span> — GET STATUS — executable load files.<br>
+    <span class="rk">84 E4 00 80 Lc AID</span> — DELETE — remove applet or package. Requires secure channel (SCP02/SCP03).<br>
+    <span class="rk">84 E6 02 00 Lc Data</span> — INSTALL [for install] — instantiate applet from loaded package.<br>
+    <span class="rk">84 E8 00 00 Lc Data</span> — LOAD — transfer applet CAP file block.<br>
+
+    <div class="rh apdu">key EF file identifiers (USIM)</div>
+    <span class="rk">3F00</span> = MF (master file)<br>
+    <span class="rk">7FFF</span> = ADF_USIM<br>
+    <span class="rk">6F07</span> = EF_IMSI<br>
+    <span class="rk">6F46</span> = EF_SPN (service provider name)<br>
+    <span class="rk">6F30</span> = EF_PLMN (preferred PLMN selector)<br>
+    <span class="rk">6F78</span> = EF_ACC (access control class)<br>
+    <span class="rk">6F7E</span> = EF_LOCI (location information — LAI, TMSI)<br>
+    <span class="rk">6F73</span> = EF_PSLOCI (PS location — P-TMSI, RAI)<br>
+    <span class="rk">6FE3</span> = EF_EPSLOCI (EPS location — GUTI, TAI)<br>
+    <span class="rk">6F38</span> = EF_UST (USIM service table)<br>
+    <span class="rk">6F3C</span> = EF_SMS<br>
+    <span class="rk">6F40</span> = EF_MSISDN<br>
+    <span class="rk">6F31</span> = EF_HPPLMN (home PLMN search period)<br>
+    <span class="rk">6FAD</span> = EF_AD (administrative data — MNC digit count, op mode)<br>
+
+    <div class="rh apdu">status words — full decode</div>
+    <span class="rk">90 00</span> — success, no further data<br>
+    <span class="rk">61 XX</span> — success, XX bytes of response available (GET RESPONSE needed)<br>
+    <span class="rk">62 XX</span> — warning, state unchanged<br>
+    <span class="rk">63 CX</span> — warning, X retries remaining (PIN verification failed)<br>
+    <span class="rk">69 82</span> — security status not satisfied (wrong key / channel / SCP state)<br>
+    <span class="rk">69 83</span> — authentication method blocked (PIN blocked, use PUK)<br>
+    <span class="rk">69 85</span> — conditions of use not satisfied<span class="rd"> (file not invalidated, wrong state)</span><br>
+    <span class="rk">6A 80</span> — incorrect parameters in data field<br>
+    <span class="rk">6A 82</span> — file or application not found<br>
+    <span class="rk">6A 84</span> — not enough memory space<br>
+    <span class="rk">6A 86</span> — incorrect P1 P2<br>
+    <span class="rk">6A 88</span> — referenced data not found<br>
+    <span class="rk">6C XX</span> — wrong Le; XX is correct length to reissue with<br>
+    <span class="rk">6D 00</span> — instruction not supported<br>
+    <span class="rk">6E 00</span> — CLA not supported<br>
+    <span class="rk">6F 00</span> — unknown error<br>
+
+    <div class="rh apdu">AT+CSIM usage — raw APDU via AT port</div>
+    AT+CSIM=length,"hex_apdu"<br>
+    length = total hex characters (bytes × 2)<br><br>
+    Example — read EF_IMSI:<br>
+    1. AT+CSIM=14,"00A4080C027FFF" — SELECT ADF_USIM<br>
+    2. AT+CSIM=14,"00A4080C026F07" — SELECT EF_IMSI<br>
+    3. AT+CSIM=10,"00B0000009" — READ BINARY 9 bytes<br>
+    Response: +CSIM: 22,"08295001012143658709 9000"<br><br>
+    AT+CGLA=channel,length,"hex_apdu" — same but on logical channel (opened via AT+CCHO or MANAGE CHANNEL)<br>
+  </div>
+
+  <div class="ref-body" id="tab-sw">
+    <div class="rh sw">sierra wireless — ! command set (EM/MC/WP modern series)</div>
+    <span class="rk">AT!ENTERCND="A710"</span> — unlock extended command set. Required on carrier-locked firmware before most !cmds.<br>
+    <span class="rk">AT!GVER?</span> — full firmware version string including bootloader, app layer, radio, build date.<br>
+    <span class="rk">AT!PRIID?</span> — PRI (Product Release Instructions) ID identifying carrier variant and customisation tier.<br>
+    <span class="rk">AT!IMAGE?</span> — firmware image slots. Useful for identifying downgrade paths.<br>
+    <span class="rk">AT!GSTATUS?</span> — comprehensive single dump: RAT, RSSI, RSRP, RSRQ, SINR, band, EARFCN, PhyCellID, TAC, global CellID, DRX cycle, temp, IMS registration state.<br>
+    <span class="rk">AT!RSSI?</span> — per-antenna RSSI and LTE RSRP/RSRQ breakdown.<br>
+    <span class="rk">AT!LTEINFO?</span> — LTE physical layer: EARFCN, DL/UL BW, MIMO rank, MCS, BLER, PhyCellID, TAC, PLMN.<br>
+    <span class="rk">AT!LTECA?</span> — carrier aggregation: PCell + SCell list, EARFCN, band, BW, RSRP per component carrier.<br>
+    <span class="rk">AT!BAND?</span> / <span class="rk">AT!BAND=mask,ltemask,tdscdma</span> — query and lock RF band bitmask. 00=auto. Persists across resets. Requires AT!RESET after change.<br>
+    <span class="rk">AT!SELRAT?</span> / <span class="rk">AT!SELRAT=n</span> — RAT mode: 00=auto, 02=UMTS, 03=LTE, 06=LTE+UMTS, 07=all.<br>
+    <span class="rk">AT!ANTSEL?</span> — antenna selection state (diversity paths).<br>
+    <span class="rk">AT!DIVERSITY?</span> / <span class="rk">AT!TXDIVERSITY?</span> — receive and transmit diversity configuration.<br>
+    <span class="rk">AT!LTEDISABLED?</span> — query whether LTE capability has been disabled (carrier customisation).<br>
+    <span class="rk">AT!OPMODE?</span> — operating mode (online, low power, factory test).<br>
+    <span class="rk">AT!PCTEMP?</span> — PA and core die temperature in degrees C.<br>
+    <span class="rk">AT!PCVOLTAGE?</span> — supply voltage in mV.<br>
+    <span class="rk">AT!USBCOMP?</span> / <span class="rk">AT!USBCOMP=n</span> — USB composition: 0=DM+NMEA+AT+MBIM, 1=MBIM only, 8=ECM.<br>
+    <span class="rk">AT!NVBACKUP</span> / <span class="rk">AT!NVRESTORE</span> / <span class="rk">AT!NVDEFAULTS</span> — NV backup, restore, factory reset. NVDEFAULTS is destructive and removes all carrier customisation.<br>
+    <span class="rk">AT!ROAMCONTROL?</span> — roaming preference configuration.<br>
+    <span class="rk">AT!IMPREF?</span> — IMS (VoLTE) registration preference.<br>
+    <span class="rk">AT!MSMSRATE?</span> — SMS rate limiting configuration.<br>
+
+    <div class="rh sw">sierra HL / Q / RV — +W wavecom legacy (HL6, HL7, Q2686, Q2698, RV50)</div>
+    <span class="rk">AT+WIND?</span> / <span class="rk">AT+WIND=n</span> — unsolicited event mask. Bit field: 0=SIM state, 1=registration, 4=call, 11=GPRS attach. e.g. 2050=0x0802=GPRS+reg.<br>
+    <span class="rk">AT+WDWL</span> — DWL firmware flash mode via XMODEM on serial port. Non-recoverable without completing transfer.<br>
+    <span class="rk">AT+WOPEN?</span> — Open-AT embedded application status: 0=stopped, 1=running.<br>
+    <span class="rk">AT+WHWV?</span> — hardware PCB version string.<br>
+    <span class="rk">AT+WSVN?</span> — internal software build ID.<br>
+    <span class="rk">AT+WIMI?</span> — IMSI in Sierra HL namespace. Returns decoded MCC/MNC/MSIN.<br>
+    <span class="rk">AT+WMBS?</span> / <span class="rk">AT+WMBS=band,persist</span> — band: 0=E-GSM 900/1800, 1=850/1900, 2=900/1900, 3=all. persist: 0=temp, 1=NV.<br>
+    <span class="rk">AT+CCED=0,1</span> — serving cell engineering dump: MCC,MNC,LAC,CellID,BSIC,ARFCN,RxLev,C1,C2,NMR.<br>
+    <span class="rk">AT+CCED=2,7</span> — serving + 6 neighbour cells in single response.<br>
+    <span class="rk">AT+WLCK="type",passwd,mcc,mnc</span> — personalisation lock/unlock. Types: NET, SP, SIM, ORSP.<br>
+    <span class="rk">AT+WRIM?</span> — ring indicator: 0=pulse on incoming, 1=hold during call.<br>
+    <span class="rk">AT+WCCS?</span> — character set page: GSM, IRA, HEX.<br>
+
+    <div class="rh sw">band bitmask reference (AT!BAND=)</div>
+    0x00000001=B1 2100  0x00000002=B2 1900PCS  0x00000004=B3 1800<br>
+    0x00000008=B4 AWS   0x00000010=B5 850       0x00000040=B7 2600<br>
+    0x00000080=B8 900   0x00080000=B20 800DD    0x04000000=B28 700APT<br>
+    0x08000000=B29 700lower  0x00=auto all<br>
+    Example B1+B28 (AU research): 0x04000001<br>
+  </div>
+
+  <div class="ref-body" id="tab-etsi">
+    <div class="rh etsi">ETSI TS 27.007 — extended AT commands (3GPP, evolved from GSM 07.07 1994)</div>
+    <span class="rk">AT+CFUN=n</span> — functionality level. 0=minimum (RF off), 1=full, 4=disable TX/RX (airplane), 6=reset. Key for power/RF state research.<br>
+    <span class="rk">AT+CPWROFF</span> — graceful power off. Not in all implementations; Sierra and Quectel support it.<br>
+    <span class="rk">AT+CIMI</span> — IMSI from SIM EF_IMSI. 15 digits: MCC(3)+MNC(2-3)+MSIN.<br>
+    <span class="rk">AT+CRSM=cmd,fileid,p1,p2,p3[,data]</span> — restricted SIM access. Wraps READ BINARY/RECORD and UPDATE at predefined EF paths. Safer than raw CSIM for common reads.<br>
+    <span class="rk">AT+CSIM=len,"hex"</span> — generic SIM access. Sends raw APDU directly to SIM. Full 7816-4 access including proprietary commands.<br>
+    <span class="rk">AT+CGLA=channel,len,"hex"</span> — generic logical channel access. Like CSIM but on a specific logical channel opened via CCHO or MANAGE CHANNEL.<br>
+    <span class="rk">AT+CCHO="AID"</span> — open logical channel to application by AID. Returns channel number for use with CGLA.<br>
+    <span class="rk">AT+CCHC=channel</span> — close logical channel.<br>
+    <span class="rk">AT+CUAD?</span> — read UICC application discovery data. Lists all AIDs present on the card (USIM, ISIM, payment applets etc).<br>
+    <span class="rk">AT+CRLA=channel,cmd,fileid,p1,p2,p3[,data]</span> — restricted logical channel access. Like CRSM but on specific channel.<br>
+    <span class="rk">AT+CIND?</span> — read indicators: signal strength, battery, roaming, call, message, service availability.<br>
+    <span class="rk">AT+CMER=mode,keyp,disp,ind</span> — mobile equipment event reporting. Enables URC indicators for display/keypad/indicator changes.<br>
+    <span class="rk">AT+COPN</span> — read full operator name table from modem NV. Useful for PLMN decoding.<br>
+    <span class="rk">AT+CPOL?</span> / <span class="rk">AT+CPOL=index,format,oper</span> — read/write preferred PLMN list in SIM EF_PLMN. Can add or remove preferred operators.<br>
+    <span class="rk">AT+CCLK?</span> / <span class="rk">AT+CCLK="yy/MM/dd,hh:mm:ss±zz"</span> — read/set real-time clock.<br>
+    <span class="rk">AT+CTZU=1</span> — enable automatic time zone update from network NITZ messages.<br>
+    <span class="rk">AT+CTZR=1</span> — enable time zone change URC reporting.<br>
+    <span class="rk">AT+CGCONTRDP[=cid]</span> — read dynamic PDP context parameters: IP address, gateway, DNS servers, MTU. Available after activation.<br>
+    <span class="rk">AT+CGPIAF=1,0,0,0</span> — IP address format control for IPv6 display.<br>
+    <span class="rk">AT+CGEREP=1,0</span> — GPRS event reporting: PDN activation/deactivation URCs.<br>
+
+    <div class="rh etsi">STK / OTA — TS 31.111 and TS 102.221</div>
+    <span class="rk">AT+STKPRO</span> — URC for proactive SIM commands (DISPLAY TEXT, SETUP MENU, SEND SMS, OPEN CHANNEL etc)<br>
+    <span class="rk">AT+STKCNF</span> — terminal confirmation for STK commands requiring user interaction<br>
+    <span class="rk">AT+STKTR="hex"</span> — send terminal response APDU back to SIM after proactive command<br>
+    <span class="rk">AT+STKENV="hex"</span> — send envelope command to SIM (MENU SELECTION, EVENT DOWNLOAD, CALL CONTROL, SMS CONTROL)<br>
+    OTA delivery path: Network → SMS-PP (TS 23.048) → SIM receives as APDU payload → SIM processes before host sees message → may trigger STK proactive command → AT+STKPRO URC appears<br>
+
+    <div class="rh etsi">key spec references</div>
+    <span class="rk">TS 27.007</span> — AT command set (current, from GSM 07.07 1994)<br>
+    <span class="rk">TS 27.005</span> — SMS/CBS AT commands<br>
+    <span class="rk">TS 31.111</span> — USIM Application Toolkit / STK<br>
+    <span class="rk">TS 31.101</span> — UICC-terminal interface physical/logical spec<br>
+    <span class="rk">TS 31.102</span> — USIM application: EF structure, service table<br>
+    <span class="rk">TS 33.102</span> — 3G security: AKA, Milenage algorithm<br>
+    <span class="rk">TS 23.040</span> — SMS technical realisation (PDU spec)<br>
+    <span class="rk">TS 23.048</span> — security mechanisms for SIM application toolkit (OTA)<br>
+    <span class="rk">TS 102.221</span> — UICC-terminal interface (ETSI, physical/electrical)<br>
+    <span class="rk">TS 102.222</span> — admin commands for UICC files (ETSI)<br>
+    <span class="rk">ISO/IEC 7816-4</span> — interindustry APDU commands (1995 foundation)<br>
+    <span class="rk">GlobalPlatform Card Spec 2.3.1</span> — GP applet management, SCP02/SCP03<br>
+    <span class="rk">JavaCard Platform Spec 3.1</span> — Oracle, free download from oracle.com/javacard<br>
+  </div>
+
+</div><!-- end right -->
+</div><!-- end body -->
+</div><!-- end app -->
+
+<script>
+const output=document.getElementById('output');
+const cmdInput=document.getElementById('cmd-input');
+let cmdHistory=[],histIdx=-1,currentPanel=null,sendTarget=1;
+
+// ---- Web Serial dual-port layer ----
+const ports={
+  1:{port:null,reader:null,writer:null,readableClosed:null,keepReading:false,hex:false,buf:''},
+  2:{port:null,reader:null,writer:null,readableClosed:null,keepReading:false,hex:false,buf:''}
+};
+
+function setConnUI(n,connected){
+  const el=document.getElementById('conn-pill-'+n);
+  if(!el)return;
+  if(connected){
+    el.textContent='P'+n+': connected';
+    el.classList.remove('qpill-r');el.classList.add('qpill-g');
+  }else{
+    el.textContent='P'+n+': connect';
+    el.classList.remove('qpill-g');el.classList.add('qpill-r');
+  }
+}
+
+function setTarget(n){
+  sendTarget=n;
+  document.getElementById('tgt1').classList.toggle('active',n===1);
+  document.getElementById('tgt2').classList.toggle('active',n===2);
+  cmdInput.placeholder=n===2?'type command to send to Port 2 (Opel S65)...':'type AT, AT!, AT+CSIM, or raw APDU command...';
+}
+
+async function toggleConnect(n){
+  if(ports[n].port){await disconnectPort(n);}else{await connectPort(n);}
+}
+
+async function connectPort(n){
+  if(!('serial'in navigator)){appendLine('Web Serial API not available — use Chrome/Edge over https or localhost','err');return;}
+  const p=ports[n];
+  try{
+    const port=await navigator.serial.requestPort();
+    const baud=parseInt(document.getElementById('baud'+n).value)||115200;
+    await port.open({baudRate:baud});
+    p.port=port;
+    p.writer=port.writable.getWriter();
+    p.keepReading=true;
+    p.buf='';
+    setConnUI(n,true);
+    appendLine(`Port ${n} connected @ ${baud} baud`,'info');
+    readLoop(n);
+  }catch(err){
+    if(err.name==='NotFoundError'){appendLine(`Port ${n}: no device selected`,'info');}
+    else{appendLine(`Port ${n} connect failed: ${err.message}`,'err');}
+  }
+}
+
+async function disconnectPort(n){
+  const p=ports[n];
+  p.keepReading=false;
+  try{if(p.reader){await p.reader.cancel();}}catch(e){}
+  try{if(p.readableClosed){await p.readableClosed.catch(()=>{});}}catch(e){}
+  try{if(p.writer){p.writer.releaseLock();}}catch(e){}
+  try{if(p.port){await p.port.close();}}catch(e){}
+  p.port=null;p.reader=null;p.writer=null;p.readableClosed=null;p.buf='';
+  setConnUI(n,false);
+  appendLine(`Port ${n} disconnected`,'info');
+}
+
+async function readLoop(n){
+  const p=ports[n];
+  const textDecoder=new TextDecoderStream();
+  p.readableClosed=p.port.readable.pipeTo(textDecoder.writable).catch(()=>{});
+  const reader=textDecoder.readable.getReader();
+  p.reader=reader;
+  try{
+    while(p.keepReading){
+      const{value,done}=await reader.read();
+      if(done)break;
+      if(value){
+        p.buf+=value;
+        const lines=p.buf.split(/\r\n|\r|\n/);
+        p.buf=lines.pop();
+        lines.forEach(l=>{
+          if(!l.trim())return;
+          const cls=l.includes('ERROR')?'err':l==='OK'?'ok':(n===2?'recv-p2':'recv');
+          appendLine((n===2?'[P2] ':'')+l.trim(),cls);
+        });
+      }
+    }
+  }catch(err){
+    if(p.keepReading)appendLine(`Port ${n} read error: ${err.message}`,'err');
+  }finally{
+    try{reader.releaseLock();}catch(e){}
+  }
+}
+
+function hexToBytes(str){
+  const clean=str.trim().replace(/\s+/g,'');
+  const bytes=[];
+  for(let i=0;i<clean.length;i+=2)bytes.push(parseInt(clean.substr(i,2),16));
+  return new Uint8Array(bytes);
+}
+
+async function writeToPort(n,str){
+  const p=ports[n];
+  if(!p.writer)return false;
+  try{
+    const data=p.hex?hexToBytes(str):new TextEncoder().encode(str+'\r\n');
+    await p.writer.write(data);
+    return true;
+  }catch(err){
+    appendLine(`Port ${n} write error: ${err.message}`,'err');
+    return false;
+  }
+}
+
+const sim={
+  'AT':()=>['OK'],
+  'ATZ':()=>['OK'],
+  'AT&F':()=>['OK'],
+  'AT&W':()=>['OK'],
+  'ATE0':()=>['OK'],'ATE1':()=>['OK'],
+  'ATV0':()=>['OK'],'ATV1':()=>['OK'],
+  'ATQ0':()=>['OK'],'ATQ1':()=>['OK'],
+  'ATX4':()=>['OK'],
+  'ATO':()=>['CONNECT 150000000'],
+  'ATH':()=>['OK'],
+  'ATA':()=>['OK'],
+  'ATL1':()=>['OK'],'ATM1':()=>['OK'],
+  'ATP':()=>['OK'],'ATT':()=>['OK'],
+  'ATI':()=>['Manufacturer: Sierra Wireless Inc.','Model: EM7455','Revision: SWI9X30C_02.32.11.00 r8042','IMEI: 353601081234567','OK'],
+  'ATI0':()=>['353','OK'],
+  'ATI3':()=>['SWI9X30C_02.32.11.00','OK'],
+  'AT&C1':()=>['OK'],'AT&D2':()=>['OK'],'AT&K3':()=>['OK'],
+  'ATS0=0':()=>['OK'],'ATS0=1':()=>['OK'],
+  'ATS3?':()=>['013','OK'],
+  'ATS7=60':()=>['OK'],
+  'AT+++':()=>['OK'],
+  'AT+CGMM':()=>['EM7455','OK'],
+  'AT+CGMI':()=>['Sierra Wireless Inc.','OK'],
+  'AT+CGMR':()=>['SWI9X30C_02.32.11.00 r8042 CARMD-EV-FRMWR2 2020/12/01','OK'],
+  'AT+CGSN':()=>['353601081234567','OK'],
+  'AT+CMEE=1':()=>['OK'],'AT+CMEE=2':()=>['OK'],
+  'AT+CLAC':()=>['AT+CGMM\r\nAT+CGMI\r\nAT+CIMI\r\nAT+CMGF\r\nAT+CUSD\r\nAT+CREG\r\nAT+CSIM\r\nAT+CGLA\r\nAT+CCHO\r\n...','OK'],
+  'AT+CFUN?':()=>['+CFUN: 1','full functionality','OK'],
+  'AT+CFUN=1':()=>['OK'],
+  'AT+CFUN=0':()=>['--- RF disabled / minimum functionality ---','OK'],
+  'AT+CFUN=4':()=>['--- TX/RX disabled (airplane equivalent) ---','OK'],
+  'AT+CFUN=6':()=>['--- modem resetting ---','OK'],
+  'AT+CPWROFF':()=>['--- powering off ---'],
+  'AT+CCLK?':()=>['+CCLK: "26/04/14,14:23:10+40"','OK'],
+  'AT+CTZR=1':()=>['OK'],
+  'AT+CTZU=1':()=>['OK'],
+  'AT+CIMI':()=>['+CIMI: 505011234567890','IMSI: 505011234567890','MCC: 505 (AU)  MNC: 01 (Telstra)','OK'],
+  'AT+COPS?':()=>['+COPS: 0,0,"Telstra",7','OK'],
+  'AT+COPS=?':()=>['+COPS: (2,"Telstra","TLS","50501",7),(1,"Optus","OPT","50502",2),(1,"Vodafone AU","VOD","50503",2)','OK'],
+  'AT+CREG?':()=>['+CREG: 2,1,"2B07","1A3C6D",7','LAC: 0x2B07 (11015)  CellID: 0x1A3C6D  AcT: 7 (LTE)','OK'],
+  'AT+CREG=2':()=>['OK'],
+  'AT+CEREG?':()=>['+CEREG: 2,1,"2B07","1A3C6D",7','TAC: 0x2B07  eNB CellID: 0x1A3C6D','OK'],
+  'AT+CEREG=2':()=>['OK'],
+  'AT+CGREG=2':()=>['OK'],
+  'AT+CSQ':()=>['+CSQ: 19,99','RSSI: -73 dBm','OK'],
+  'AT+CPSI?':()=>['+CPSI: LTE,Online,505-01,0x2B07,12345678,101,EUTRAN-BAND28,700,5,5,-82,-720,-420,18','OK'],
+  'AT+CNUM':()=>['+CNUM: "","0412345678",129','OK'],
+  'AT+COPN':()=>['+COPN: "50501","Telstra"','+COPN: "50502","Optus"','+COPN: "50503","Vodafone AU"','...','OK'],
+  'AT+CPOL?':()=>['+CPOL: 1,2,"50501",1,1,1','+CPOL: 2,2,"50502",1,1,0','OK'],
+  'AT+CIND?':()=>['+CIND: ("battchg",(0-5)),("signal",(0-5)),("roam",(0-1)),("smsfull",(0-1))','OK'],
+  'AT+CMER=3,0,0,1':()=>['OK'],
+  'AT+CNMI=2,1,0,0,0':()=>['OK'],
+  'AT+CMGF=1':()=>['OK'],'AT+CMGF=0':()=>['OK'],
+  'AT+CMGL="ALL"':()=>['+CMGL: 1,1,,24','07919761088760F301000B8191745210...','OK'],
+  'AT+CPMS?':()=>['+CPMS: "SM",4,30,"SM",4,30','OK'],
+  'AT+CSCA?':()=>['+CSCA: "+61418706700",145','OK'],
+  'AT+CSDH=1':()=>['OK'],
+  'AT+CUSD=0':()=>['+CUSD: 2','OK'],
+  'AT+CUSD=1,"*#100#",15':()=>['+CUSD: 0,"Balance: $12.50. Expiry: 30/04/2026.",15','OK'],
+  'AT+CUSD=1,"*#06#",15':()=>['+CUSD: 0,"IMEI: 353601081234567",15','OK'],
+  'AT+CUSD=1,"*135#",15':()=>['+CUSD: 0,"Your number: 0412345678",15','OK'],
+  'AT+CUSD=1,"*#21#",15':()=>['+CUSD: 0,"All calls: Not forwarded",15','OK'],
+  'AT+CUSD=1,"##21#",15':()=>['+CUSD: 0,"Erasure successful",15','OK'],
+  'AT+ICCID':()=>['89610180001234567890','OK'],
+  'AT+CPIN?':()=>['+CPIN: READY','OK'],
+  'AT+CRSM=176,28423,0,0,10':()=>['+CRSM: 144,0,"08295001012143658709"','EF_IMSI: 08 29 50 01 01 21 43 65 87 09','Decoded IMSI: 505011234567890','OK'],
+  'AT+CRSM=176,28618,0,0,11':()=>['+CRSM: 144,0,"FF4175737465726C69612054656C737472"','EF_SPN: Telstra','OK'],
+  'AT+CRSM=176,28486,0,0,16':()=>['+CRSM: 144,0,"505010FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"','EF_PLMN: 50501 (Telstra)','OK'],
+  'AT+CRSM=176,28589,0,0,2':()=>['+CRSM: 144,0,"0100"','EF_ACC: 0x0100 (access class 8)','OK'],
+  'AT+CRSM=176,28438,0,0,4':()=>['+CRSM: 144,0,"07022B07FF"','EF_LOCI: LAI=07022B07 TMSI=FF (not allocated)','OK'],
+  'AT+CUAD?':()=>['+CUAD: A0000000871002FF49FF4888','AID: A0000000871002FF49FF4888 (3GPP USIM)','OK'],
+  'AT+CCHO="A0000000871002FF49FF"':()=>['+CCHO: 1','logical channel 1 opened to USIM AID','OK'],
+  'AT+CCHC=1':()=>['OK'],
+  'AT+CGLA=1,10,"00B0000009"':()=>['+CGLA: 20,"08295001012143658709 9000"','READ BINARY EF_IMSI via logical channel 1','OK'],
+  'AT+CSIM=14,"0070000001"':()=>['+CSIM: 6,"019000"','MANAGE CHANNEL: channel 1 opened','OK'],
+  'AT+CSIM=10,"00C0000010"':()=>['+CSIM: 36,"08295001012143658709FFFFFFFFFFFF9000"','GET RESPONSE: 16 bytes','OK'],
+  'AT+CSIM=10,"00B0000010"':()=>['+CSIM: 36,"08295001012143658709FFFFFFFFFFFF9000"','READ BINARY','OK'],
+  'AT+CSIM=10,"00B2010410"':()=>['+CSIM: 24,"436F6E7461637420310000000000009000"','READ RECORD 1','OK'],
+  'AT+CSIM=10,"0020000104"':()=>['+CSIM: 4,"6984"','VERIFY PIN: 6984 = authentication method blocked','OK'],
+  'AT+CSIM=10,"00F2000010"':()=>['+CSIM: 36,"622E820228218410A0000000871002FF499000"','GET STATUS: USIM ADF selected','OK'],
+  'AT+CSIM=14,"0070000001"':()=>['+CSIM: 6,"019000"','channel 1 opened','OK'],
+  'AT+CSIM=10,"00708000"':()=>['+CSIM: 4,"9000"','channel closed','OK'],
+  'AT+CSIM=10,"80CA9F7F00"':()=>['+CSIM: 84,"9F7F2A4791A4D00012345678DEADBEEF0000000000010203000000000000000000009000"','CPLC: IC serial, batch, personalisation dates','OK'],
+  'AT+CSIM=10,"80CA004F00"':()=>['+CSIM: 14,"004F08A000000003000000009000"','IIN (Issuer Identification Number)','OK'],
+  'AT+CSIM=10,"80F28000"':()=>['+CSIM: 26,"E3148410A000000151000000FF0101039000"','GP GET STATUS: ISD found','OK'],
+  'AT+CSIM=10,"80F24000"':()=>['+CSIM: 20,"E310841048424A4F50347817019000"','GP GET STATUS: JCOP platform app','OK'],
+  'AT+CSIM=10,"80F28010"':()=>['+CSIM: 8,"E3009000"','GP GET STATUS: no exec load files','OK'],
+  'AT+CSIM=10,"80CA9F1700"':()=>['+CSIM: 8,"9F170001009000"','card recognition data: v1.0','OK'],
+  'AT+CSIM=10,"84E40080"':()=>['+CSIM: 4,"6982"','DELETE: 6982 = security not satisfied (SCP required)','OK'],
+  'AT+CSIM=10,"84E60200"':()=>['+CSIM: 4,"6982"','INSTALL: 6982 = security not satisfied','OK'],
+  'AT+CSIM=10,"84E80000"':()=>['+CSIM: 4,"6982"','LOAD: 6982 = security not satisfied','OK'],
+  'AT+CSIM=14,"00A4040000"':()=>['+CSIM: 4,"9000"','SELECT MF (3F00)','OK'],
+  'AT+CSIM=14,"00A4000002"':()=>['+CSIM: 4,"6A82"','SELECT: 6A82 = file not found (need valid FID)','OK'],
+  'AT+CLCK="SC",2':()=>['+CLCK: 0','SIM lock: disabled','OK'],
+  'AT+CPBS?':()=>['+CPBS: "SM",4,30','OK'],
+  'AT+CGDCONT?':()=>['+CGDCONT: 1,"IP","telstra.internet","",0,0','OK'],
+  'AT+CGACT?':()=>['+CGACT: 1,1','OK'],
+  'AT+CGPADDR':()=>['+CGPADDR: 1,"10.20.30.41"','OK'],
+  'AT+CGCONTRDP':()=>['+CGCONTRDP: 1,5,"telstra.internet","10.20.30.41.255.255.255.0","10.20.30.1","8.8.8.8","8.8.4.4",,,1500','OK'],
+  'AT+CGEREP=1,0':()=>['OK'],
+  'AT+CGPIAF=1,0,0,0':()=>['OK'],
+  'AT+STKPRO?':()=>['+STKPRO: 0','no pending proactive command','OK'],
+  'AT+STKCNF=1':()=>['OK'],
+  'AT!GVER?':()=>['SWI9X30C_02.32.11.00','r8042 CARMD-EV-FRMWR2 2020/12/01','Bootloader: SBL1 0.1.0','Radio: 9x30 B0','OK'],
+  'AT!PRIID?':()=>['PRI Part: 9904609','Revision: 002.036','Customer: Generic','OK'],
+  'AT!ENTERCND="A710"':()=>['OK','--- extended ! commands unlocked ---'],
+  'AT!IMAGE?':()=>['[0] ACTIVE  SWI9X30C_02.32.11.00','[1] BACKUP  SWI9X30C_02.30.01.01','OK'],
+  'AT!UDPID?':()=>['USB PID: 0x9071','OK'],
+  'AT!USBCOMP?':()=>['Composition: 0 (DM+NMEA+AT+MBIM)','OK'],
+  'AT!USBCOMP=?':()=>['(0,1,2,3,4,5,8)','OK'],
+  'AT!USBVID?':()=>['USB VID: 0x1199 (Sierra Wireless)','OK'],
+  'AT!BOOTHOLD?':()=>['Boot hold: 0 (disabled)','OK'],
+  'AT!IMPREF?':()=>['IMS preference: 0 (auto)','OK'],
+  'AT!OPMODE?':()=>['Operating mode: 0 (online)','OK'],
+  'AT!HWID?':()=>['HW ID: 0x01020304','OK'],
+  'AT!GSTATUS?':()=>['!GSTATUS:','Current Time: 142312  Mode: ONLINE','System mode: LTE     PS state: Attached','LTE band: B28       LTE bw: 10 MHz','LTE Rx chan: 6200   LTE Tx chan: 24200','EMM state: Registered Normal Service','RRC state: RRC Idle','RSSI: -71 dBm       TAC: 2B07 (11015)','RSRP: -96 dBm       Cell ID: 1A3C6D','RSRQ: -10 dB        PhyCellID: 101','SINR: 12.4 dB','OK'],
+  'AT!RSSI?':()=>['RSSI[0]: -71  RSSI[1]: -74','RSRP[0]: -96 RSRP[1]: -99','RSRQ: -10   SINR: 12.4','OK'],
+  'AT!GETRAT?':()=>['Current RAT: LTE','OK'],
+  'AT!GETBAND?':()=>['Band: B28 (700 MHz APT)','DL EARFCN: 6200  UL: 24200','OK'],
+  'AT!LTEINFO?':()=>['PLMN: 50501  Band: 28  EARFCN: 6200  BW: 10MHz','PhyCellID: 101  TAC: 2B07  CellID: 1A3C6D','RSRP: -96  RSRQ: -10  SINR: 12.4','MCS DL: 14  UL: 10  MIMO: rank 2  BLER: 0.3%','OK'],
+  'AT!LTECA?':()=>['CA: Active 2CC','PCell B28 EARFCN:6200 BW:10 RSRP:-96','SCell B1  EARFCN:525  BW:20 RSRP:-101','OK'],
+  'AT!NWINFO?':()=>['Telstra 50501  TAC:2B07  CI:1A3C6D  B28  -71dBm','OK'],
+  'AT!ANTSEL?':()=>['Antenna: auto diversity','OK'],
+  'AT!DIVERSITY?':()=>['RX diversity: enabled','OK'],
+  'AT!TXDIVERSITY?':()=>['TX diversity: enabled','OK'],
+  'AT!LTEDISABLED?':()=>['LTE disabled: 0 (LTE enabled)','OK'],
+  'AT!SCACT?':()=>['SCell active: 1','OK'],
+  'AT!BAND?':()=>['Band pref: 04000009 (B1+B28)','OK'],
+  'AT!SELRAT?':()=>['RAT: 06 (LTE+UMTS)','OK'],
+  'AT!BAND=00':()=>['OK','--- auto bands, reset required ---'],
+  'AT!SELRAT=00':()=>['OK','--- auto RAT, reset required ---'],
+  'AT!SELRAT=03':()=>['OK','--- LTE only, reset required ---'],
+  'AT!SELRAT=02':()=>['OK','--- UMTS only, reset required ---'],
+  'AT!SELRAT=06':()=>['OK','--- LTE+UMTS, reset required ---'],
+  'AT!DASCONN?':()=>['CONNECTED  APN: telstra.internet','IPv4: 10.20.30.41','OK'],
+  'AT!SCPADDR?':()=>['+SCPADDR: 1,"10.20.30.41"','OK'],
+  'AT!PCOPTS?':()=>['Power opts: 0 (standard)','OK'],
+  'AT!PCTEMP?':()=>['PA: 38C  Core: 41C','OK'],
+  'AT!PCVOLTAGE?':()=>['Voltage: 3780 mV','OK'],
+  'AT!ROAMCONTROL?':()=>['Roam: 0 (auto)','OK'],
+  'AT!DFTSERV?':()=>['Default service: LTE','OK'],
+  'AT!CUSTOM?':()=>['Custom NV: 14 items','!BAND: 04000009','!SELRAT: 06','...','OK'],
+  'AT!MSMSRATE?':()=>['SMS rate: 0 (unlimited)','OK'],
+  'AT!NVBACKUP':()=>['NV backup complete','OK'],
+  'AT!NVRESTORE':()=>['NV restore complete  reboot required','OK'],
+  'AT!NVDEFAULTS':()=>['--- FACTORY NV RESET ---','--- ALL customisation removed ---','--- reboot required ---'],
+  'AT!RESET':()=>['--- resetting ---'],
+  'AT!POWERDOWN':()=>['--- powering down ---'],
+  'AT!COREDUMP?':()=>['Core dump: none','OK'],
+  'AT!RMARESET=1':()=>['RMA reset complete','OK'],
+  'AT+WHWV?':()=>['+WHWV: "HL6528-2.8V R2.6.5.0"','OK'],
+  'AT+WSVN?':()=>['+WSVN: "RHL6.3.3.3"','OK'],
+  'AT+WIMI?':()=>['+WIMI: 505011234567890','MCC:505 MNC:01 MSIN:1234567890','OK'],
+  'AT+WOPEN?':()=>['+WOPEN: 1  Open-AT: RUNNING','OK'],
+  'AT+WDWL':()=>['--- DWL flash mode ---','CONNECT 115200','--- awaiting XMODEM ---'],
+  'AT+WIND?':()=>['+WIND: 2050','mask: GPRS+registration','OK'],
+  'AT+WIND=16':()=>['OK'],
+  'AT+WIND=2050':()=>['OK'],
+  'AT+CCED=0,1':()=>['+CCED: 505,01,2B07,1A3C,3A,62,28,-,-,7','MCC:505 MNC:01 LAC:2B07 CI:1A3C BSIC:3A ARFCN:62 RxLev:28','OK'],
+  'AT+CCED=2,7':()=>['+CCED: 505,01,2B07,1A3C,3A,62,28,0','505,01,2B07,1B4D,2F,65,21,1','505,01,2B07,1C9A,18,58,19,2','OK'],
+  'AT+WMBS?':()=>['+WMBS: 0,1  band:E-GSM persist:saved','OK'],
+  'AT+WLCK?':()=>['+WLCK: "NET",0,"SP",0,"SIM",0,"ORSP",0','all unlocked','OK'],
+  'AT+WRIM?':()=>['+WRIM: 0  pulse on incoming','OK'],
+  'AT+WMSC?':()=>['+WMSC: 1','OK'],
+  'AT+WCCS?':()=>['+WCCS: 0,"GSM"','OK'],
+};
+
+const panels={
+  dial:{title:'ATD — dial builder',fields:[{id:'num',label:'number to dial',placeholder:'+61412345678'},{id:'type',label:'T=tone P=pulse ; =voice only',placeholder:'T'}],build(f){return[`ATD${f.type.value||'T'}${f.num.value||'0000000000'}`];}},
+  silent:{title:'silent SMS — class 0 PDU builder',fields:[{id:'dest',label:'dest (intl no +)',placeholder:'61412345678'},{id:'msg',label:'message',placeholder:'ping'},{id:'smsc',label:'SMSC (blank=default)',placeholder:'61418706700'}],
+    build(f){const dest=f.dest.value.trim()||'0000000000',msg=f.msg.value.trim()||' ',smscRaw=f.smsc.value.trim(),smscPart=smscRaw?'07'+enc(smscRaw,true):'00',dl=dest.length.toString(16).padStart(2,'0').toUpperCase(),de=enc(dest,false),ud=gsm7(msg),pdu=smscPart+'0100'+dl+'91'+de+'0010'+ud.length.toString(16).padStart(2,'0').toUpperCase()+ud,sl=smscPart==='00'?1:parseInt(smscPart.substring(0,2),16)+1;return['AT+CMGF=0','AT+CMGS='+(pdu.length/2-sl)+'\r\n'+pdu+'\x1A'];}},
+  ussd:{title:'AT+CUSD — USSD builder',fields:[{id:'n',label:'n (1=send)',placeholder:'1'},{id:'str',label:'USSD string',placeholder:'*#100#'},{id:'dcs',label:'DCS (15=GSM7)',placeholder:'15'}],build(f){return[`AT+CUSD=${f.n.value||'1'},"${f.str.value||'*#100#'}",${f.dcs.value||'15'}`];}},
+  pdu:{title:'PDU SMS — manual builder',fields:[{id:'smsc',label:'SMSC (00=default)',placeholder:'00'},{id:'flags',label:'flags (01=SUBMIT)',placeholder:'01'},{id:'mr',label:'TP-MR',placeholder:'00'},{id:'da',label:'dest len (digits)',placeholder:'11'},{id:'tonpi',label:'TON/NPI (91=intl)',placeholder:'91'},{id:'daaddr',label:'dest semi-octets',placeholder:'F61481234567F8'},{id:'pid',label:'PID (00=normal)',placeholder:'00'},{id:'dcs',label:'DCS (10=class0)',placeholder:'00'},{id:'ud',label:'user data (hex)',placeholder:'C8329BFD06'}],
+    build(f){const p=[f.smsc,f.flags,f.mr,f.da,f.tonpi,f.daaddr,f.pid,f.dcs].map(e=>e.value.trim().replace(/\s/g,'')).join(''),ud=f.ud.value.trim().replace(/\s/g,''),full=p+(ud.length/2).toString(16).padStart(2,'0').toUpperCase()+ud,sl=parseInt(f.smsc.value.trim().substring(0,2)||'0',16);return['AT+CMGF=0','AT+CMGS='+(full.length/2-sl-1)+'\r\n'+full+'\x1A'];}},
+  sms_text:{title:'send SMS — text mode',fields:[{id:'num',label:'destination',placeholder:'+61412345678'},{id:'msg',label:'message',placeholder:'Hello'}],build(f){return['AT+CMGF=1',`AT+CMGS="${f.num.value||'+61412345678'}"\r\n${f.msg.value||'Hello'}\x1A`];}},
+  pdp:{title:'AT+CGDCONT — set APN',fields:[{id:'cid',label:'context ID',placeholder:'1'},{id:'type',label:'PDP type',placeholder:'IP'},{id:'apn',label:'APN',placeholder:'telstra.internet'}],build(f){return[`AT+CGDCONT=${f.cid.value||'1'},"${f.type.value||'IP'}","${f.apn.value||'internet'}"`];}},
+  csim:{title:'AT+CSIM — raw APDU sender',fields:[{id:'apdu',label:'APDU hex (CLA INS P1 P2 ...)',placeholder:'00A4040000'}],build(f){const h=f.apdu.value.trim().replace(/\s/g,'');return[`AT+CSIM=${h.length},"${h}"`];}},
+  cgla:{title:'AT+CGLA — logical channel APDU',fields:[{id:'ch',label:'channel number',placeholder:'1'},{id:'apdu',label:'APDU hex',placeholder:'00B0000009'}],build(f){const h=f.apdu.value.trim().replace(/\s/g,'');return[`AT+CGLA=${f.ch.value||'1'},${h.length},"${h}"`];}},
+  select_aid:{title:'SELECT AID — open applet',fields:[{id:'aid',label:'AID hex',placeholder:'A0000000871002FF49FF'}],build(f){const h='00A4040000'+f.aid.value.trim().replace(/\s/g,'');return[`AT+CSIM=${h.length},"${h}"`];}},
+  apdu_raw:{title:'raw APDU builder — 7816-4',fields:[{id:'cla',label:'CLA',placeholder:'00'},{id:'ins',label:'INS',placeholder:'B0'},{id:'p1',label:'P1',placeholder:'00'},{id:'p2',label:'P2',placeholder:'00'},{id:'lc',label:'Lc (blank=none)',placeholder:''},{id:'data',label:'Data (hex, blank=none)',placeholder:''},{id:'le',label:'Le (blank=none)',placeholder:'10'}],
+    build(f){let h=f.cla.value+f.ins.value+f.p1.value+f.p2.value;if(f.lc.value)h+=f.lc.value;if(f.data.value)h+=f.data.value.replace(/\s/g,'');if(f.le.value)h+=f.le.value;h=h.replace(/\s/g,'');return[`AT+CSIM=${h.length},"${h}"`];}},
+  stktr:{title:'AT+STKTR — terminal response',fields:[{id:'resp',label:'response APDU hex',placeholder:'8103012400820282819000'}],build(f){return[`AT+STKTR="${f.resp.value.trim().replace(/\s/g,'')}"`];}},
+  stkenv:{title:'AT+STKENV — envelope command',fields:[{id:'env',label:'envelope APDU hex',placeholder:'D30482028281'}],build(f){return[`AT+STKENV="${f.env.value.trim().replace(/\s/g,'')}"`];}},
+  swband:{title:'AT!BAND= — sierra band lock',fields:[{id:'mask',label:'band mask (00=auto)',placeholder:'04000009'},{id:'lte',label:'LTE mask',placeholder:'04000009'},{id:'td',label:'TD-SCDMA (00=none)',placeholder:'00'}],build(f){return[`AT!BAND=${f.mask.value||'00'},${f.lte.value||'00'},${f.td.value||'00'}`,'AT!RESET'];}},
+  swrat:{title:'AT!SELRAT= — RAT selector',fields:[{id:'rat',label:'00=auto 02=UMTS 03=LTE 06=LTE+UMTS',placeholder:'06'}],build(f){return[`AT!SELRAT=${f.rat.value||'06'}`,'AT!RESET'];}},
+  wmbs:{title:'AT+WMBS= — HL band select',fields:[{id:'band',label:'0=900/1800 1=850/1900 2=900/1900 3=all',placeholder:'0'},{id:'persist',label:'0=temp 1=NV save',placeholder:'1'}],build(f){return[`AT+WMBS=${f.band.value||'0'},${f.persist.value||'1'}`];}},
+  wlck:{title:'AT+WLCK= — HL personalisation lock',fields:[{id:'type',label:'type (NET/SP/SIM/ORSP)',placeholder:'NET'},{id:'pw',label:'unlock code (8 digits)',placeholder:'00000000'},{id:'mcc',label:'MCC',placeholder:'505'},{id:'mnc',label:'MNC',placeholder:'01'}],build(f){return[`AT+WLCK="${f.type.value||'NET'}",${f.pw.value||'00000000'},${f.mcc.value||'505'},${f.mnc.value||'01'}`];}},
+};
+
+function enc(num,forSmsc){let s=num.replace(/\D/g,'');if(s.length%2)s+='F';let o='';for(let i=0;i<s.length;i+=2)o+=s[i+1]+s[i];if(forSmsc){const bl=(o.length/2+1).toString(16).padStart(2,'0').toUpperCase();return bl+'91'+o.toUpperCase();}return o.toUpperCase();}
+function gsm7(str){const cs='@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1BÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ`¿abcdefghijklmnopqrstuvwxyzäöñüà';let b='';for(const c of str){const i=cs.indexOf(c);if(i<0)continue;b+=i.toString(2).padStart(7,'0').split('').reverse().join('');}while(b.length%8)b+='0';let h='';for(let i=0;i<b.length;i+=8)h+=parseInt(b.slice(i,i+8).split('').reverse().join(''),2).toString(16).padStart(2,'0').toUpperCase();return h;}
+function ts(){return new Date().toTimeString().slice(0,8);}
+
+function appendLine(text,cls='recv'){
+  const div=document.createElement('div');div.className='line '+cls;
+  const pfx=document.createElement('span');pfx.className='pfx';pfx.textContent=cls==='sent'?'>':'<';
+  const tsS=document.createElement('span');tsS.className='ts';tsS.textContent=ts();
+  const tx=document.createElement('span');tx.className='text';tx.textContent=text;
+  div.appendChild(pfx);div.appendChild(tsS);div.appendChild(tx);
+  output.appendChild(div);output.scrollTop=output.scrollHeight;
+}
+
+function sendCmd(raw,n=1){
+  if(!raw||!raw.trim())return;
+  const cmd=raw.trim();
+  const label=(cmd.length>100?cmd.slice(0,100)+'…':cmd);
+  appendLine(n===2?label:label,n===2?'sent p2':'sent');
+  cmdHistory.unshift((n===2?'[P2] ':'')+cmd);histIdx=-1;
+
+  // live hardware takes over when that port is connected
+  if(ports[n].port&&ports[n].writer){
+    writeToPort(n,cmd);
+    return; // real response arrives asynchronously via readLoop
+  }
+
+  // no live connection on this port -> fall back to simulator (Port 1 sim library only)
+  if(n===2){
+    appendLine('Port 2 not connected — plug in the Opel S65 to send','err');
+    return;
+  }
+
+  const upper=cmd.split('\r\n')[0].toUpperCase().replace(/\s/g,'');
+  let responses=null;
+  for(const[key,fn]of Object.entries(sim)){if(upper===key.toUpperCase().replace(/\s/g,'')){responses=fn();break;}}
+  if(!responses){
+    if(upper.startsWith('AT!'))responses=['OK'];
+    else if(upper.startsWith('AT+CMGS='))responses=['> (awaiting PDU + Ctrl-Z)','+CMGS: 1','OK'];
+    else if(upper.startsWith('AT+CSIM='))responses=['+CSIM: 4,"6D00"','INS not supported on sim selection'];
+    else if(upper.startsWith('AT+CGLA='))responses=['+CGLA: 4,"6D00"','try opening channel first with AT+CCHO'];
+    else if(upper.startsWith('AT+CUSD='))responses=['+CUSD: 0,"Carrier response",15','OK'];
+    else if(upper.startsWith('AT+STKTR='))responses=['OK'];
+    else if(upper.startsWith('AT+STKENV='))responses=['OK'];
+    else if(upper.startsWith('AT'))responses=['+CME ERROR: 4 (not supported — simulated)'];
+    else responses=['not an AT command'];
+  }
+  let delay=100;
+  responses.forEach(r=>{
+    setTimeout(()=>{
+      const isSW=r.includes('SWI')||r.includes('Sierra')||r.includes('PRI')||r.includes('!GSTATUS')||r.startsWith('!');
+      const isHayes=r==='CONNECT 150000000'||r.startsWith('RING')||r.startsWith('NO CARRIER');
+      const isAPDU=r.includes('+CSIM:')||r.includes('+CGLA:')||r.includes('+CCHO:')||r.includes('CPLC')||r.includes('MANAGE CHANNEL')||r.includes('READ BINARY')||r.includes('SELECT')||r.includes('GP GET');
+      const isETSI=r.includes('+CUAD:')||r.includes('+CRSM:')||r.includes('EF_')||r.includes('AID:')||r.includes('IMSI:');
+      const cls=r==='OK'?'ok':r.includes('ERROR')?'err':(r.includes('MCC')||r.includes('IMSI')||r.includes('MNC'))?'imsi':(r.includes('+CME')||r.includes('+CMS'))?'cme':isHayes?'hayes-resp':isAPDU?'apdu-resp':isETSI?'etsi-resp':isSW?'sw-resp':r.startsWith('---')?'sw-note':'recv';
+      appendLine(r,cls);
+    },delay);delay+=70;
+  });
+}
+
+function sendFromInput(){const v=cmdInput.value.trim();if(!v)return;sendCmd(v,sendTarget);cmdInput.value='';}
+function sendCmdPort2(raw){sendCmd(raw,2);}
+function clearOutput(){output.innerHTML='';appendLine('terminal cleared','info');}
+
+function showPanel(type){
+  const p=panels[type];if(!p)return;currentPanel=type;
+  document.getElementById('panel-title').textContent=p.title;
+  const grid=document.getElementById('param-grid');grid.innerHTML='';
+  p.fields.forEach(f=>{const d=document.createElement('div');d.className='param-field';d.innerHTML=`<span class="param-label">${f.label}</span><input class="param-input" id="pf-${f.id}" placeholder="${f.placeholder}" autocomplete="off" spellcheck="false"/>`;grid.appendChild(d);});
+  document.getElementById('param-panel').classList.add('open');
+}
+function closePanel(){document.getElementById('param-panel').classList.remove('open');currentPanel=null;}
+function buildFromPanel(){if(!currentPanel)return;const p=panels[currentPanel],fields={};p.fields.forEach(f=>{fields[f.id]=document.getElementById('pf-'+f.id);});p.build(fields).forEach(c=>sendCmd(c));}
+
+function tg(btn){const body=btn.nextElementSibling,arrow=btn.querySelector('.garrow'),isOpen=body.classList.toggle('open');arrow.classList.toggle('open',isOpen);}
+
+function renderHistory(){
+  const el=document.getElementById('tab-history');
+  if(!cmdHistory.length){el.innerHTML='<span style="color:#37474f">no commands yet</span>';return;}
+  el.innerHTML=cmdHistory.slice(0,80).map((c,i)=>`<div class="hist-row" onclick="document.getElementById('cmd-input').value='${c.replace(/'/g,"\\'")}';switchTab('terminal')"><span class="hist-n">${i+1}</span>${c}</div>`).join('');
+}
+
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  ['terminal','history','hayes','apdu','sw','etsi'].forEach(n=>{
+    const panel=document.getElementById('tab-'+n);
+    if(panel)panel.style.display='none';
+  });
+  const target=document.getElementById('tab-'+name);
+  if(target)target.style.display=name==='terminal'?'flex':'block';
+  if(name==='history')renderHistory();
+}
+
+cmdInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){sendFromInput();return;}
+  if(e.key==='ArrowUp'){histIdx=Math.min(histIdx+1,cmdHistory.length-1);cmdInput.value=cmdHistory[histIdx]||'';e.preventDefault();}
+  if(e.key==='ArrowDown'){histIdx=Math.max(histIdx-1,-1);cmdInput.value=histIdx<0?'':cmdHistory[histIdx];e.preventDefault();}
+});
+
+window.addEventListener('beforeunload',()=>{
+  [1,2].forEach(n=>{if(ports[n].port){ports[n].keepReading=false;try{ports[n].port.forget?.();}catch(e){}}});
+});
+if('serial'in navigator){
+  navigator.serial.addEventListener('disconnect',(e)=>{
+    [1,2].forEach(n=>{if(ports[n].port===e.target){appendLine(`Port ${n} device unplugged`,'err');ports[n].keepReading=false;ports[n].port=null;ports[n].writer=null;setConnUI(n,false);}});
+  });
+}
+
+appendLine('AT / Hayes / ETSI 27.007 / Sierra Wireless / ISO 7816-4 APDU terminal','info');
+appendLine('hayes foundation  |  standard AT  |  ETSI extensions  |  APDU/CSIM  |  Sierra !cmds  |  Sierra HL +W','info');
+appendLine('──────────────────────────────────────────────────────────────────────────────','info');
+sendCmd('AT');sendCmd('ATI');sendCmd('AT!GSTATUS?');
+</script>
+</body>
+</html>
